@@ -8,6 +8,9 @@ import { ConfigService } from '@nestjs/config';
 import { DatabaseConfig } from './config/database.config';
 import { AppConfig } from './config/app.config';
 
+// Common Services
+import { EmailModule } from './common/services/email.module';
+
 // Modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -55,6 +58,9 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 
     // Scheduling
     ScheduleModule.forRoot(),
+
+    // Common Services
+    EmailModule,
 
     // Feature Modules
     AuthModule,

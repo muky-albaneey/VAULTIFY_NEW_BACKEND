@@ -38,6 +38,11 @@ const ResetPasswordSchema = z.object({
   new_password: z.string().min(6),
 });
 
+const VerifyOTPSchema = z.object({
+  user_id: z.string().uuid(),
+  otp: z.string().length(6),
+});
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -46,12 +51,24 @@ export class AuthController {
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User registered successfully' })
+  @ApiOperation({ summary: 'Register a new user and send OTP' })
+  @ApiResponse({ status: 201, description: 'User registered successfully. OTP sent to email.' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async register(@Body() registerDto: RegisterDto) {
     const validatedData = RegisterSchema.parse(registerDto) as RegisterDto;
     return this.authService.register(validatedData);
+  }
+
+  @Post('verify-otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP and complete registration' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async verifyOTP(@Body() body: { user_id: string; otp: string }) {
+    const validatedData = VerifyOTPSchema.parse(body);
+    return this.authService.verifyOTP(validatedData.user_id, validatedData.otp);
   }
 
   @Post('login')

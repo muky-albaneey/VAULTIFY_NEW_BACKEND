@@ -61,6 +61,12 @@ export class User {
   })
   status: UserStatus;
 
+  @Column({ nullable: true })
+  verification_code: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verification_code_expires: Date;
+
   @CreateDateColumn()
   created_at: Date;
 

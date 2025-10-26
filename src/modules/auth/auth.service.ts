@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserStatus } from '../../entities/user.entity';
 import { JwtPayload, RefreshTokenPayload } from '../../common/interfaces/common.interface';
+import { EmailService } from '../../common/services/email.service';
 
 export interface LoginDto {
   email: string;
@@ -35,12 +36,13 @@ export interface AuthResponse {
 export class AuthService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
+    public readonly userRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<AuthResponse> {
+  async register(registerDto: RegisterDto): Promise<{ message: string; user_id: string }> {
     const { email, password, first_name, last_name } = registerDto;
 
     // Check if user already exists
@@ -53,28 +55,72 @@ export class AuthService {
     const saltRounds = this.configService.get('security.bcryptRounds');
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Create user
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date();
+    otpExpires.setMinutes(otpExpires.getMinutes() + 10); // OTP expires in 10 minutes
+
+    // Create user with PENDING status
     const user = this.userRepository.create({
       email,
       password_hash,
       first_name,
       last_name,
       status: UserStatus.PENDING,
+      verification_code: otp,
+      verification_code_expires: otpExpires,
     });
 
     const savedUser = await this.userRepository.save(user);
 
+    // Send OTP email
+    await this.emailService.sendOTP(email, `${first_name} ${last_name}`, otp);
+
+    return {
+      message: 'Registration successful. Please check your email for verification code.',
+      user_id: savedUser.user_id,
+    };
+  }
+
+  async verifyOTP(userId: string, otp: string): Promise<AuthResponse> {
+    // Find user
+    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Check if already verified
+    if (user.status === UserStatus.ACTIVE) {
+      throw new BadRequestException('User is already verified');
+    }
+
+    // Check OTP
+    if (!user.verification_code || user.verification_code !== otp) {
+      throw new UnauthorizedException('Invalid verification code');
+    }
+
+    // Check if OTP expired
+    if (!user.verification_code_expires || new Date() > user.verification_code_expires) {
+      throw new BadRequestException('Verification code has expired');
+    }
+
+    // Update user status and clear OTP
+    user.status = UserStatus.ACTIVE;
+    user.verification_code = null;
+    user.verification_code_expires = null;
+    await this.userRepository.save(user);
+
     // Generate tokens
-    const tokens = await this.generateTokens(savedUser);
+    const tokens = await this.generateTokens(user);
 
     return {
       ...tokens,
       user: {
-        user_id: savedUser.user_id,
-        email: savedUser.email,
-        first_name: savedUser.first_name,
-        last_name: savedUser.last_name,
-        status: savedUser.status,
+        user_id: user.user_id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        status: user.status,
       },
     };
   }
@@ -94,9 +140,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check user status
+    // Check user status - only ACTIVE users can login
     if (user.status === UserStatus.SUSPENDED) {
       throw new UnauthorizedException('Account is suspended');
+    }
+
+    if (user.status === UserStatus.PENDING) {
+      throw new UnauthorizedException('Please verify your email to login');
     }
 
     // Generate tokens
@@ -200,12 +250,48 @@ export class AuthService {
       return;
     }
 
-    // Generate OTP and send email (implement email service)
-    // For now, just return
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date();
+    otpExpires.setMinutes(otpExpires.getMinutes() + 10); // OTP expires in 10 minutes
+
+    // Save OTP to user record
+    user.verification_code = otp;
+    user.verification_code_expires = otpExpires;
+    await this.userRepository.save(user);
+
+    // Send OTP email
+    await this.emailService.sendPasswordResetOTP(
+      email,
+      `${user.first_name} ${user.last_name}`,
+      otp,
+    );
   }
 
   async resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
-    // Validate OTP and reset password
-    // Implementation depends on OTP storage mechanism
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check OTP
+    if (!user.verification_code || user.verification_code !== otp) {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    // Check if OTP expired
+    if (!user.verification_code_expires || new Date() > user.verification_code_expires) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Hash new password
+    const saltRounds = this.configService.get('security.bcryptRounds');
+    const password_hash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password and clear OTP
+    user.password_hash = password_hash;
+    user.verification_code = null;
+    user.verification_code_expires = null;
+    await this.userRepository.save(user);
   }
 }

@@ -43,7 +43,7 @@ describe('Vaultify Backend (e2e)', () => {
   });
 
   describe('Authentication', () => {
-    it('should register a new user', async () => {
+    it('should register a new user and send OTP', async () => {
       const registerData = {
         email: 'test@example.com',
         password: 'password123',
@@ -53,14 +53,42 @@ describe('Vaultify Backend (e2e)', () => {
 
       const result = await authService.register(registerData);
       
-      expect(result).toHaveProperty('access_token');
-      expect(result).toHaveProperty('refresh_token');
-      expect(result.user.email).toBe(registerData.email);
+      expect(result).toHaveProperty('message');
+      expect(result).toHaveProperty('user_id');
+      expect(result.user_id).toBeDefined();
     });
 
-    it('should login with valid credentials', async () => {
+    it('should reject login for pending users', async () => {
       const loginData = {
         email: 'test@example.com',
+        password: 'password123',
+      };
+
+      await expect(authService.login(loginData)).rejects.toThrow('Please verify your email to login');
+    });
+
+    it('should login with valid credentials for active users', async () => {
+      // First create a verified user
+      const registerData = {
+        email: 'activetest@example.com',
+        password: 'password123',
+        first_name: 'Active',
+        last_name: 'Test',
+      };
+
+      const registerResult = await authService.register(registerData);
+      
+      // Verify OTP (get the OTP from the user - in real scenario, check email)
+      // For testing, we'll manually activate the user by getting the OTP from the database
+      const testUser = await authService['userRepository'].findOne({ where: { user_id: registerResult.user_id } });
+      const otp = testUser.verification_code;
+      
+      // Verify OTP to activate user
+      await authService.verifyOTP(registerResult.user_id, otp);
+
+      // Now login should work
+      const loginData = {
+        email: 'activetest@example.com',
         password: 'password123',
       };
 
@@ -69,6 +97,7 @@ describe('Vaultify Backend (e2e)', () => {
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
       expect(result.user.email).toBe(loginData.email);
+      expect(result.user.status).toBe('active');
     });
 
     it('should reject invalid credentials', async () => {
@@ -92,8 +121,12 @@ describe('Vaultify Backend (e2e)', () => {
         last_name: 'Test',
       };
 
-      const result = await authService.register(registerData);
-      userId = result.user.user_id;
+      const registerResult = await authService.register(registerData);
+      userId = registerResult.user_id;
+      
+      // Activate user by verifying OTP
+      const testUser = await authService['userRepository'].findOne({ where: { user_id: userId } });
+      await authService.verifyOTP(userId, testUser.verification_code);
     });
 
     it('should get user profile', async () => {
