@@ -32,6 +32,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [DatabaseConfig, AppConfig],
+        ignoreEnvFile: process.env.NODE_ENV === 'production', // <- add this
     }),
     
     // Database
