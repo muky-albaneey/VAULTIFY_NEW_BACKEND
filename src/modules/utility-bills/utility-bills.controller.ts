@@ -61,7 +61,7 @@ export class UtilityBillsController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateUtilityAccountDto,
   ) {
-    const validatedData = CreateUtilityAccountSchema.parse(createData);
+    const validatedData = CreateUtilityAccountSchema.parse(createData) as CreateUtilityAccountDto;
     return this.utilityBillsService.createUtilityAccount(userId, validatedData);
   }
 
@@ -132,7 +132,7 @@ export class UtilityBillsController {
     @Param('id') billId: string,
     @Body() paymentData: PayUtilityBillDto,
   ) {
-    const validatedData = PayUtilityBillSchema.parse(paymentData);
+    const validatedData = PayUtilityBillSchema.parse(paymentData) as PayUtilityBillDto;
     
     // Route to appropriate payment method
     if (validatedData.payment_method === 'lenco') {
@@ -165,7 +165,7 @@ export class UtilityBillsController {
   @ApiResponse({ status: 200, description: 'Customer validated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid customer data' })
   async validateUtilityCustomer(@Body() validationData: ValidateUtilityCustomerDto) {
-    const validatedData = ValidateUtilityCustomerSchema.parse(validationData);
+    const validatedData = ValidateUtilityCustomerSchema.parse(validationData) as ValidateUtilityCustomerDto;
     return this.utilityBillsService.validateUtilityCustomer(validatedData);
   }
 

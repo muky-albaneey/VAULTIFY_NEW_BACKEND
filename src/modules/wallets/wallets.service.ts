@@ -21,9 +21,9 @@ export interface WalletTransferDto {
 export interface WalletTransactionHistoryDto {
   page?: number;
   limit?: number;
-  purpose?: TransactionPurpose;
-  direction?: TransactionDirection;
-  status?: TransactionStatus;
+  purpose?: 'top_up' | 'subscription_payment' | 'utility_payment' | 'refund' | 'transfer';
+  direction?: 'credit' | 'debit';
+  status?: 'pending' | 'success' | 'failed';
 }
 
 @Injectable()

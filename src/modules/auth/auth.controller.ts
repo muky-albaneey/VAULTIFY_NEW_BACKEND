@@ -50,7 +50,7 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async register(@Body() registerDto: RegisterDto) {
-    const validatedData = RegisterSchema.parse(registerDto);
+    const validatedData = RegisterSchema.parse(registerDto) as RegisterDto;
     return this.authService.register(validatedData);
   }
 
@@ -62,7 +62,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto) {
-    const validatedData = LoginSchema.parse(loginDto);
+    const validatedData = LoginSchema.parse(loginDto) as LoginDto;
     return this.authService.login(validatedData);
   }
 
