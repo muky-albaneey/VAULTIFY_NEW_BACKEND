@@ -2,6 +2,14 @@
 
 A comprehensive NestJS backend for the Vaultify estate management platform with JWT authentication, wallet system, subscriptions, utility bills, messaging, and more.
 
+## 📚 Documentation
+
+- **[Complete API Architecture Documentation](./API_ARCHITECTURE_DOCUMENTATION.md)** - System architecture, technology stack, design patterns, security
+- **[Detailed Module Documentation](./MODULES_DOCUMENTATION.md)** - Comprehensive module-by-module documentation with API endpoints
+- **[Project Structure](./PROJECT_STRUCTURE.md)** - Codebase organization and file structure
+- **[Payment System Summary](./COMPLETE_PAYMENT_SYSTEM_SUMMARY.md)** - Wallet and payment implementation details
+- **[Seed Data Summary](./COMPLETE_SEED_DATA_SUMMARY.md)** - Database seeding information
+
 ## ✨ Features
 
 ### 🔐 **Authentication & Security**
