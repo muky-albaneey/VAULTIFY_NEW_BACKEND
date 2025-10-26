@@ -1,9 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppModule } from '../app.module';
-import { AuthService } from '../modules/auth/auth.service';
-import { UsersService } from '../modules/users/users.service';
+import { UsersService } from '@/modules/users/users.service';
+import { AuthService } from '@/modules/auth/auth.service';
+import { AppModule } from '@/app.module';
+// import { AppModule } from '../app.module';
+// import { AuthService } from '../modules/auth/auth.service';
+// import { UsersService } from '../modules/users/users.service';
 
 describe('Vaultify Backend (e2e)', () => {
   let app: INestApplication;
