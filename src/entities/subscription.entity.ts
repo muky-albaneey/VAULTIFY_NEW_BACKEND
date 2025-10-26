@@ -14,6 +14,7 @@ import { Plan } from './plan.entity';
 import { Payment } from './payment.entity';
 
 export enum SubscriptionStatus {
+  PENDING = 'pending',
   ACTIVE = 'active',
   EXPIRED = 'expired',
   PAUSED = 'paused',

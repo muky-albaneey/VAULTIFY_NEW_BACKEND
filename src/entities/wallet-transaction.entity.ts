@@ -18,6 +18,7 @@ export enum TransactionPurpose {
   TOP_UP = 'top_up',
   SUBSCRIPTION_PAYMENT = 'subscription_payment',
   UTILITY_PAYMENT = 'utility_payment',
+  SERVICE_CHARGE_PAYMENT = 'service_charge_payment',
   REFUND = 'refund',
   TRANSFER = 'transfer',
 }

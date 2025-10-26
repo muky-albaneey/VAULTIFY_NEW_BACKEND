@@ -124,4 +124,7 @@ export class User {
 
   @OneToMany(() => MessageReaction, (reaction) => reaction.user)
   messageReactions: MessageReaction[];
+
+  @OneToMany(() => Conversation, (conversation) => conversation.createdBy)
+  createdConversations: Conversation[];
 }

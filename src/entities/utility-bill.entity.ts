@@ -46,6 +46,9 @@ export class UtilityBill {
   @Column()
   generated_at: Date;
 
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: any;
+
   // Relationships
   @ManyToOne(() => UtilityAccount, (account) => account.bills)
   @JoinColumn({ name: 'utility_account_id' })
