@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { DeviceToken } from '../../entities/device-token.entity';
-import { User } from '../../entities/user.entity';
+import { User, UserStatus } from '../../entities/user.entity';
 import { NotificationPayload } from '../../common/interfaces/common.interface';
 
 @Injectable()
@@ -93,7 +93,7 @@ export class NotificationsService {
       // Get all users in the estate (you might need to add estate relationship)
       // For now, we'll get all active users
       const users = await this.userRepository.find({
-        where: { status: 'active' },
+        where: { status: UserStatus.ACTIVE },
       });
 
       const userIds = users.map(user => user.user_id);

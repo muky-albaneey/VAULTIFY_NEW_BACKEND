@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Alert, AlertType, UrgencyLevel } from '../../entities/alert.entity';
 import { UserDeletedAlert } from '../../entities/user-deleted-alert.entity';
-import { User } from '../../entities/user.entity';
+import { User, UserStatus } from '../../entities/user.entity';
 import { UserProfile } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -268,7 +268,7 @@ export class AlertsService {
       if (recipients.type === 'all') {
         // Send to all users
         const users = await this.userRepository.find({
-          where: { status: 'active' },
+          where: { status: UserStatus.ACTIVE },
         });
 
         for (const user of users) {

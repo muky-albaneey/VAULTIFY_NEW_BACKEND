@@ -138,7 +138,7 @@ export class PaymentsService {
     const [payments, total] = await this.paymentRepository.findAndCount({
       where: { user_id: userId },
       relations: ['provider'],
-      order: { created_at: 'DESC' },
+      order: { payment_id: 'DESC' },
       skip: offset,
       take: limit,
     });

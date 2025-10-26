@@ -143,25 +143,25 @@ export class SeedData {
       }
 
       // Seed Sample Estate
-      const existingEstate = await queryRunner.manager.findOne(Estate, {
+      let estate = await queryRunner.manager.findOne(Estate, {
         where: { name: 'Sample Estate' },
       });
 
-      if (!existingEstate) {
-        const estate = queryRunner.manager.create(Estate, {
+      if (!estate) {
+        const newEstate = queryRunner.manager.create(Estate, {
           name: 'Sample Estate',
           email: 'admin@sampleestate.com',
           address: '123 Sample Street, Lagos, Nigeria',
         });
-        await queryRunner.manager.save(estate);
+        estate = await queryRunner.manager.save(newEstate);
       }
 
       // Seed Admin User
-      const existingAdmin = await queryRunner.manager.findOne(User, {
+      let savedAdmin = await queryRunner.manager.findOne(User, {
         where: { email: 'admin@vaultify.com' },
       });
 
-      if (!existingAdmin) {
+      if (!savedAdmin) {
         const hashedPassword = await bcrypt.hash('admin123', 12);
         
         const adminUser = queryRunner.manager.create(User, {
@@ -172,7 +172,7 @@ export class SeedData {
           status: UserStatus.ACTIVE,
         });
         
-        const savedAdmin = await queryRunner.manager.save(adminUser);
+        savedAdmin = await queryRunner.manager.save(adminUser);
 
         // Create admin profile
         const adminProfile = queryRunner.manager.create(UserProfile, {
@@ -190,8 +190,10 @@ export class SeedData {
           available_balance: 0,
         });
         await queryRunner.manager.save(adminWallet);
+      }
 
-        // Create sample residents
+      // Create sample residents only if estate and savedAdmin exist
+      if (estate && savedAdmin) {
         const residents = [
           {
             email: 'john.doe@sampleestate.com',
@@ -260,7 +262,7 @@ export class SeedData {
         where: { name: 'Electrician' },
       });
 
-      if (electricianService) {
+      if (electricianService && savedAdmin) {
         const existingProvider = await queryRunner.manager.findOne(Provider, {
           where: { first_name: 'Sample', last_name: 'Electrician' },
         });
@@ -278,18 +280,18 @@ export class SeedData {
             skill: 'Electrical repairs, installations, maintenance',
             profile_picture_url: 'https://example.com/electrician.jpg',
           });
-          await queryRunner.manager.save(provider);
+          const savedProvider = await queryRunner.manager.save(provider);
 
           // Add provider photo
           const providerPhoto = queryRunner.manager.create(ProviderPhoto, {
-            provider_id: provider.provider_id,
+            provider_id: savedProvider.provider_id,
             image_url: 'https://example.com/electrician-work.jpg',
           });
           await queryRunner.manager.save(providerPhoto);
 
           // Add provider review
           const providerReview = queryRunner.manager.create(ProviderReview, {
-            provider_id: provider.provider_id,
+            provider_id: savedProvider.provider_id,
             reviewer_name: 'John Doe',
             rating: 5,
             comment: 'Excellent work! Very professional and punctual.',
@@ -340,12 +342,12 @@ export class SeedData {
       }
 
       // Seed Sample Bank Service Charges
-      const users = await queryRunner.manager.find(User, {
+      const bankServiceChargeUsers = await queryRunner.manager.find(User, {
         where: { status: UserStatus.ACTIVE },
         take: 2,
       });
 
-      for (const user of users) {
+      for (const user of bankServiceChargeUsers) {
         const existingBSC = await queryRunner.manager.findOne(BankServiceCharge, {
           where: { user_id: user.user_id },
         });
@@ -389,38 +391,40 @@ export class SeedData {
       }
 
       // Seed Sample Lost & Found Items
-      const users = await queryRunner.manager.find(User, {
+      const lostFoundUsers = await queryRunner.manager.find(User, {
         where: { status: UserStatus.ACTIVE },
         take: 2,
       });
 
-      for (const user of users) {
-        const existingItem = await queryRunner.manager.findOne(LostFoundItem, {
-          where: { sender_user_id: user.user_id },
-        });
-
-        if (!existingItem) {
-          const lostFoundItem = queryRunner.manager.create(LostFoundItem, {
-            sender_user_id: user.user_id,
-            estate_id: estate.estate_id,
-            description: 'Found a black wallet near the main gate',
-            item_type: LostFoundType.FOUND,
-            location: 'Main Gate Area',
-            contact_info: user.profile?.phone_number || '+2348000000000',
-            image_url: 'https://example.com/wallet.jpg',
-            date_reported: new Date(),
+      if (estate) {
+        for (const user of lostFoundUsers) {
+          const existingItem = await queryRunner.manager.findOne(LostFoundItem, {
+            where: { sender_user_id: user.user_id },
           });
-          await queryRunner.manager.save(lostFoundItem);
+
+          if (!existingItem) {
+            const lostFoundItem = queryRunner.manager.create(LostFoundItem, {
+              sender_user_id: user.user_id,
+              estate_id: estate.estate_id,
+              description: 'Found a black wallet near the main gate',
+              item_type: LostFoundType.FOUND,
+              location: 'Main Gate Area',
+              contact_info: user.profile?.phone_number || '+2348000000000',
+              image_url: 'https://example.com/wallet.jpg',
+              date_reported: new Date(),
+            });
+            await queryRunner.manager.save(lostFoundItem);
+          }
         }
       }
 
       // Seed Sample Access Codes
-      const users = await queryRunner.manager.find(User, {
+      const accessCodeUsers = await queryRunner.manager.find(User, {
         where: { status: UserStatus.ACTIVE },
         take: 2,
       });
 
-      for (const user of users) {
+      for (const user of accessCodeUsers) {
         const existingCode = await queryRunner.manager.findOne(AccessCode, {
           where: { creator_user_id: user.user_id },
         });
@@ -445,12 +449,12 @@ export class SeedData {
       }
 
       // Seed Sample Device Tokens
-      const users = await queryRunner.manager.find(User, {
+      const deviceTokenUsers = await queryRunner.manager.find(User, {
         where: { status: UserStatus.ACTIVE },
         take: 2,
       });
 
-      for (const user of users) {
+      for (const user of deviceTokenUsers) {
         const existingToken = await queryRunner.manager.findOne(DeviceToken, {
           where: { user_id: user.user_id },
         });
@@ -468,32 +472,34 @@ export class SeedData {
       }
 
       // Seed Sample Reports
-      const users = await queryRunner.manager.find(User, {
+      const reportUsers = await queryRunner.manager.find(User, {
         where: { status: UserStatus.ACTIVE },
         take: 2,
       });
 
-      for (const user of users) {
-        const existingReport = await queryRunner.manager.findOne(Report, {
-          where: { user_id: user.user_id },
-        });
-
-        if (!existingReport) {
-          const report = queryRunner.manager.create(Report, {
-            user_id: user.user_id,
-            estate_id: estate.estate_id,
-            category: ReportCategory.MAINTENANCE,
-            subject: 'Broken streetlight',
-            details: 'The streetlight near Block A is not working properly',
-            location: 'Block A, Street 1',
-            urgency: ReportUrgency.MEDIUM,
-            contact_preference: 'In-app only',
-            occurred_on: new Date(),
-            anonymize_report: false,
-            allow_sharing: true,
-            status: ReportStatus.OPEN,
+      if (estate) {
+        for (const user of reportUsers) {
+          const existingReport = await queryRunner.manager.findOne(Report, {
+            where: { user_id: user.user_id },
           });
-          await queryRunner.manager.save(report);
+
+          if (!existingReport) {
+            const report = queryRunner.manager.create(Report, {
+              user_id: user.user_id,
+              estate_id: estate.estate_id,
+              category: ReportCategory.MAINTENANCE,
+              subject: 'Broken streetlight',
+              details: 'The streetlight near Block A is not working properly',
+              location: 'Block A, Street 1',
+              urgency: ReportUrgency.MEDIUM,
+              contact_preference: 'In-app only',
+              occurred_on: new Date(),
+              anonymize_report: false,
+              allow_sharing: true,
+              status: ReportStatus.OPEN,
+            });
+            await queryRunner.manager.save(report);
+          }
         }
       }
 

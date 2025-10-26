@@ -53,6 +53,12 @@ export class Payment {
   @Column({ type: 'jsonb', nullable: true })
   raw_payload: any;
 
+  @CreateDateColumn()
+  created_at: Date;
+
+  @CreateDateColumn()
+  updated_at: Date;
+
   // Relationships
   @ManyToOne(() => User, (user) => user.payments)
   @JoinColumn({ name: 'user_id' })
