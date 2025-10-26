@@ -37,7 +37,7 @@ export class EstatesController {
   @ApiOperation({ summary: 'Create new estate (Admin only)' })
   @ApiResponse({ status: 201, description: 'Estate created successfully' })
   async createEstate(@Body() createData: CreateEstateDto) {
-    const validatedData = CreateEstateSchema.parse(createData);
+    const validatedData = CreateEstateSchema.parse(createData) as CreateEstateDto;
     return this.estatesService.createEstate(validatedData);
   }
 

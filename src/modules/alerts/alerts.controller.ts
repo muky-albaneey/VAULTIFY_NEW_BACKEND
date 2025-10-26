@@ -43,7 +43,7 @@ export class AlertsController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateAlertDto,
   ) {
-    const validatedData = CreateAlertSchema.parse(createData);
+    const validatedData = CreateAlertSchema.parse(createData) as CreateAlertDto;
     return this.alertsService.createAlert(userId, validatedData);
   }
 
@@ -82,7 +82,7 @@ export class AlertsController {
     @Param('id') alertId: string,
     @Body() updateData: UpdateAlertDto,
   ) {
-    const validatedData = UpdateAlertSchema.parse(updateData);
+    const validatedData = UpdateAlertSchema.parse(updateData) as UpdateAlertDto;
     return this.alertsService.updateAlert(alertId, userId, validatedData);
   }
 

@@ -12,7 +12,7 @@ const ActivateSubscriptionSchema = z.object({
 });
 
 const AddFamilyMemberSchema = z.object({
-  user_id: z.st ring().uuid(),
+  user_id: z.string().uuid(),
 });
 
 const RemoveFamilyMemberSchema = z.object({
@@ -59,7 +59,7 @@ export class SubscriptionsController {
     @CurrentUserId() userId: string,
     @Body() activationData: ActivateSubscriptionDto,
   ) {
-    const validatedData = ActivateSubscriptionSchema.parse(activationData);
+    const validatedData = ActivateSubscriptionSchema.parse(activationData) as ActivateSubscriptionDto;
     return this.subscriptionsService.activateSubscription(userId, validatedData);
   }
 
@@ -98,7 +98,7 @@ export class SubscriptionsController {
     @CurrentUserId() userId: string,
     @Body() memberData: AddFamilyMemberDto,
   ) {
-    const validatedData = AddFamilyMemberSchema.parse(memberData);
+    const validatedData = AddFamilyMemberSchema.parse(memberData) as AddFamilyMemberDto;
     return this.subscriptionsService.addFamilyMember(userId, validatedData);
   }
 
@@ -110,7 +110,7 @@ export class SubscriptionsController {
     @CurrentUserId() userId: string,
     @Body() memberData: RemoveFamilyMemberDto,
   ) {
-    const validatedData = RemoveFamilyMemberSchema.parse(memberData);
+    const validatedData = RemoveFamilyMemberSchema.parse(memberData) as RemoveFamilyMemberDto;
     return this.subscriptionsService.removeFamilyMember(userId, validatedData);
   }
 }

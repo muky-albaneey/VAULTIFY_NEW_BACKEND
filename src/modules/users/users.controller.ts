@@ -48,7 +48,7 @@ export class UsersController {
     @CurrentUserId() userId: string,
     @Body() updateData: UpdateProfileDto,
   ) {
-    const validatedData = UpdateProfileSchema.parse(updateData);
+    const validatedData = UpdateProfileSchema.parse(updateData) as UpdateProfileDto;
     return this.usersService.updateProfile(userId, validatedData);
   }
 
@@ -59,7 +59,7 @@ export class UsersController {
     @CurrentUserId() userId: string,
     @Body() deviceData: RegisterDeviceDto,
   ) {
-    const validatedData = RegisterDeviceSchema.parse(deviceData);
+    const validatedData = RegisterDeviceSchema.parse(deviceData) as RegisterDeviceDto;
     return this.usersService.registerDevice(userId, validatedData);
   }
 

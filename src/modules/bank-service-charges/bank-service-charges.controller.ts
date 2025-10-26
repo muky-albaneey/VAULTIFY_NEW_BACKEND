@@ -50,7 +50,7 @@ export class BankServiceChargeController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateBankServiceChargeDto,
   ) {
-    const validatedData = CreateBankServiceChargeSchema.parse(createData);
+    const validatedData = CreateBankServiceChargeSchema.parse(createData) as CreateBankServiceChargeDto;
     return this.bankServiceChargeService.createBankServiceCharge(userId, validatedData);
   }
 
@@ -70,7 +70,7 @@ export class BankServiceChargeController {
     @CurrentUserId() userId: string,
     @Body() updateData: UpdateBankServiceChargeDto,
   ) {
-    const validatedData = UpdateBankServiceChargeSchema.parse(updateData);
+    const validatedData = UpdateBankServiceChargeSchema.parse(updateData) as UpdateBankServiceChargeDto;
     return this.bankServiceChargeService.updateBankServiceCharge(userId, validatedData);
   }
 
@@ -82,7 +82,7 @@ export class BankServiceChargeController {
     @CurrentUserId() userId: string,
     @Body() paymentData: PayServiceChargeDto,
   ) {
-    const validatedData = PayServiceChargeSchema.parse(paymentData);
+    const validatedData = PayServiceChargeSchema.parse(paymentData) as PayServiceChargeDto;
     return this.bankServiceChargeService.payServiceCharge(userId, validatedData);
   }
 
@@ -94,7 +94,7 @@ export class BankServiceChargeController {
     @CurrentUserId() userId: string,
     @Body() uploadData: UploadServiceChargeFileDto,
   ) {
-    const validatedData = UploadServiceChargeFileSchema.parse(uploadData);
+    const validatedData = UploadServiceChargeFileSchema.parse(uploadData) as UploadServiceChargeFileDto;
     
     // Get user's bank service charge record
     const bsc = await this.bankServiceChargeService.getUserBankServiceCharge(userId);

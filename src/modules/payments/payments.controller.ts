@@ -35,7 +35,7 @@ export class PaymentsController {
     @CurrentUserId() userId: string,
     @Body() paymentData: InitiatePaymentDto,
   ) {
-    const validatedData = InitiatePaymentSchema.parse(paymentData);
+    const validatedData = InitiatePaymentSchema.parse(paymentData) as InitiatePaymentDto;
     return this.paymentsService.initiatePayment(userId, validatedData);
   }
 
@@ -54,7 +54,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Paystack webhook handler' })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   async handlePaystackWebhook(@Body() webhookData: PaymentWebhookDto) {
-    const validatedData = PaymentWebhookSchema.parse(webhookData);
+    const validatedData = PaymentWebhookSchema.parse(webhookData) as PaymentWebhookDto;
     return this.paymentsService.handleWebhook(validatedData);
   }
 
