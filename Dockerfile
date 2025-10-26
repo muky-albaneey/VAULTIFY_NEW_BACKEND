@@ -45,4 +45,4 @@ COPY --from=builder /app/dist ./dist
 # keep your uploads dir writeable
 RUN mkdir -p /app/uploads
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

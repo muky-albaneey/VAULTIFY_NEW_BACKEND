@@ -311,7 +311,6 @@ export class MessagingService {
       const participant = this.participantRepository.create({
         conversation_id: conversationId,
         user_id: newUserId,
-        added_by_user_id: userId,
         is_admin: false,
         joined_at: new Date(),
       });

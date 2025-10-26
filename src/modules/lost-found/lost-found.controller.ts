@@ -36,7 +36,16 @@ export class LostFoundController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateLostFoundItemDto,
   ) {
-    const validatedData = CreateLostFoundItemSchema.parse(createData);
+    const parsed = CreateLostFoundItemSchema.parse(createData);
+    const validatedData: CreateLostFoundItemDto = {
+      estate_id: parsed.estate_id,
+      description: parsed.description,
+      item_type: parsed.item_type as any,
+      location: parsed.location,
+      contact_info: parsed.contact_info,
+      image_url: parsed.image_url,
+      date_reported: parsed.date_reported ? new Date(parsed.date_reported) : undefined,
+    };
     return this.lostFoundService.createItem(userId, validatedData);
   }
 
@@ -63,7 +72,7 @@ export class LostFoundController {
     @Query('query') query: string,
     @Query('item_type') itemType?: 'Lost' | 'Found',
   ) {
-    return this.lostFoundService.searchItems(estateId, query, itemType);
+    return this.lostFoundService.searchItems(estateId, query, itemType as any);
   }
 
   @Get(':id')

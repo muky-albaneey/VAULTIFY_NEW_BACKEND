@@ -30,7 +30,17 @@ export class AccessCodesController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateAccessCodeDto,
   ) {
-    const validatedData = CreateAccessCodeSchema.parse(createData) as CreateAccessCodeDto;
+    const parsed = CreateAccessCodeSchema.parse(createData);
+    const validatedData: CreateAccessCodeDto = {
+      visitor_name: parsed.visitor_name,
+      visitor_email: parsed.visitor_email,
+      visitor_phone: parsed.visitor_phone,
+      valid_from: new Date(parsed.valid_from),
+      valid_to: new Date(parsed.valid_to),
+      max_uses: parsed.max_uses,
+      gate: parsed.gate,
+      notify_on_use: parsed.notify_on_use,
+    };
     return this.accessCodesService.createAccessCode(userId, validatedData);
   }
 

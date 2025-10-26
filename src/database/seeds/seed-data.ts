@@ -1,23 +1,23 @@
 import { DataSource } from 'typeorm';
 import { PaymentProvider } from '../../entities/payment-provider.entity';
-import { Plan } from '../../entities/plan.entity';
 import { User, UserStatus } from '../../entities/user.entity';
-import { UserProfile, UserRole } from '../../entities/user-profile.entity';
+import { UserProfile, UserRole, ApartmentType } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Service } from '../../entities/service.entity';
-import { UtilityProvider } from '../../entities/utility-provider.entity';
+import { UtilityProvider, UtilityCategory } from '../../entities/utility-provider.entity';
 import { Alert, AlertType, UrgencyLevel } from '../../entities/alert.entity';
 import { BankServiceCharge, PaymentFrequency } from '../../entities/bank-service-charge.entity';
-import { LostFoundItem, LostFoundType } from '../../entities/lost-found-item.entity';
+import { LostFoundItem, ItemType } from '../../entities/lost-found-item.entity';
 import { Provider } from '../../entities/provider.entity';
 import { ProviderPhoto } from '../../entities/provider-photo.entity';
 import { ProviderReview } from '../../entities/provider-review.entity';
 import { UtilityAccount } from '../../entities/utility-account.entity';
-import { UtilityBill, UtilityBillStatus } from '../../entities/utility-bill.entity';
+import { UtilityBill, BillStatus } from '../../entities/utility-bill.entity';
 import { AccessCode } from '../../entities/access-code.entity';
 import { DeviceToken, Platform } from '../../entities/device-token.entity';
-import { Report, ReportCategory, ReportUrgency, ReportStatus } from '../../entities/report.entity';
+import { Report, ReportCategory, ReportUrgency, ReportStatus, ContactPreference } from '../../entities/report.entity';
+import { Plan, PlanType, BillingCycle } from '../../entities/plan.entity';
 import * as bcrypt from 'bcrypt';
 
 export class SeedData {
@@ -51,36 +51,36 @@ export class SeedData {
         {
           code: 'NORMAL_MONTHLY',
           name: 'Normal Monthly Plan',
-          type: 'normal',
+          type: PlanType.NORMAL,
           price_ngn: 5000,
-          billing_cycle: 'monthly',
+          billing_cycle: BillingCycle.MONTHLY,
           max_members: 1,
           is_active: true,
         },
         {
           code: 'NORMAL_YEARLY',
           name: 'Normal Yearly Plan',
-          type: 'normal',
+          type: PlanType.NORMAL,
           price_ngn: 50000,
-          billing_cycle: 'yearly',
+          billing_cycle: BillingCycle.YEARLY,
           max_members: 1,
           is_active: true,
         },
         {
           code: 'FAMILY_MONTHLY',
           name: 'Family Monthly Plan',
-          type: 'family',
+          type: PlanType.FAMILY,
           price_ngn: 15000,
-          billing_cycle: 'monthly',
+          billing_cycle: BillingCycle.MONTHLY,
           max_members: 5,
           is_active: true,
         },
         {
           code: 'FAMILY_YEARLY',
           name: 'Family Yearly Plan',
-          type: 'family',
+          type: PlanType.FAMILY,
           price_ngn: 150000,
-          billing_cycle: 'yearly',
+          billing_cycle: BillingCycle.YEARLY,
           max_members: 5,
           is_active: true,
         },
@@ -124,11 +124,11 @@ export class SeedData {
 
       // Seed Utility Providers
       const utilityProviders = [
-        { name: 'PHCN', category: 'power', metadata: { region: 'national' } },
-        { name: 'Water Board', category: 'water', metadata: { region: 'state' } },
-        { name: 'Waste Management', category: 'waste', metadata: { region: 'local' } },
-        { name: 'Gas Company', category: 'gas', metadata: { region: 'national' } },
-        { name: 'Internet Provider', category: 'internet', metadata: { region: 'national' } },
+        { name: 'PHCN', category: UtilityCategory.POWER, metadata: { region: 'national' } },
+        { name: 'Water Board', category: UtilityCategory.WATER, metadata: { region: 'state' } },
+        { name: 'Waste Management', category: UtilityCategory.WASTE, metadata: { region: 'local' } },
+        { name: 'Gas Company', category: UtilityCategory.GAS, metadata: { region: 'national' } },
+        { name: 'Internet Provider', category: UtilityCategory.INTERNET, metadata: { region: 'national' } },
       ];
 
       for (const providerData of utilityProviders) {
@@ -179,7 +179,7 @@ export class SeedData {
           user_id: savedAdmin.user_id,
           phone_number: '+2348000000000',
           role: UserRole.ADMIN,
-          apartment_type: 'Penthouse',
+          apartment_type: ApartmentType.PENTHOUSE,
           house_address: 'Admin Office',
         });
         await queryRunner.manager.save(adminProfile);
@@ -201,7 +201,7 @@ export class SeedData {
             last_name: 'Doe',
             phone: '+2348012345678',
             role: UserRole.RESIDENCE,
-            apartment_type: '2-Bedroom',
+            apartment_type: ApartmentType.TWO_BEDROOM,
             house_address: 'Block A, Flat 101',
           },
           {
@@ -210,7 +210,7 @@ export class SeedData {
             last_name: 'Smith',
             phone: '+2348012345679',
             role: UserRole.RESIDENCE,
-            apartment_type: '3-Bedroom',
+            apartment_type: ApartmentType.THREE_BEDROOM,
             house_address: 'Block B, Flat 205',
           },
           {
@@ -219,7 +219,7 @@ export class SeedData {
             last_name: 'Security',
             phone: '+2348012345680',
             role: UserRole.SECURITY_PERSONNEL,
-            apartment_type: '1-Bedroom',
+            apartment_type: ApartmentType.ONE_BEDROOM,
             house_address: 'Security Quarters',
           },
         ];
@@ -333,7 +333,7 @@ export class SeedData {
               billing_period_end: new Date('2024-01-31'),
               amount_due: 15000,
               due_date: new Date('2024-02-15'),
-              status: UtilityBillStatus.UNPAID,
+              status: BillStatus.UNPAID,
               generated_at: new Date(),
             });
             await queryRunner.manager.save(utilityBill);
@@ -407,7 +407,7 @@ export class SeedData {
               sender_user_id: user.user_id,
               estate_id: estate.estate_id,
               description: 'Found a black wallet near the main gate',
-              item_type: LostFoundType.FOUND,
+              item_type: ItemType.FOUND,
               location: 'Main Gate Area',
               contact_info: user.profile?.phone_number || '+2348000000000',
               image_url: 'https://example.com/wallet.jpg',
@@ -492,7 +492,7 @@ export class SeedData {
               details: 'The streetlight near Block A is not working properly',
               location: 'Block A, Street 1',
               urgency: ReportUrgency.MEDIUM,
-              contact_preference: 'In-app only',
+              contact_preference: ContactPreference.IN_APP_ONLY,
               occurred_on: new Date(),
               anonymize_report: false,
               allow_sharing: true,

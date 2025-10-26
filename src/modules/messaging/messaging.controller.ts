@@ -37,7 +37,13 @@ export class MessagingController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateConversationDto,
   ) {
-    const validatedData = CreateConversationSchema.parse(createData);
+    const parsed = CreateConversationSchema.parse(createData) as any;
+    const validatedData: CreateConversationDto = {
+      estate_id: parsed.estate_id,
+      type: parsed.type,
+      title: parsed.title,
+      participant_user_ids: parsed.participant_user_ids,
+    };
     return this.messagingService.createConversation(userId, validatedData);
   }
 
@@ -73,7 +79,13 @@ export class MessagingController {
     @Param('id') conversationId: string,
     @Body() messageData: SendMessageDto,
   ) {
-    const validatedData = SendMessageSchema.parse(messageData);
+    const parsed = SendMessageSchema.parse(messageData) as any;
+    const validatedData: SendMessageDto = {
+      content: parsed.content,
+      type: parsed.type,
+      metadata: parsed.metadata,
+      reply_to_message_id: parsed.reply_to_message_id,
+    };
     return this.messagingService.sendMessage(userId, conversationId, validatedData);
   }
 
@@ -99,7 +111,10 @@ export class MessagingController {
     @Param('id') messageId: string,
     @Body() reactionData: AddReactionDto,
   ) {
-    const validatedData = AddReactionSchema.parse(reactionData);
+    const parsed = AddReactionSchema.parse(reactionData);
+    const validatedData: AddReactionDto = {
+      emoji: parsed.emoji,
+    };
     return this.messagingService.addReaction(userId, messageId, validatedData);
   }
 
@@ -189,7 +204,13 @@ export class MessagingController {
     @Param('estateId') estateId: string,
     @Body() messageData: SendMessageDto,
   ) {
-    const validatedData = SendMessageSchema.parse(messageData);
+    const parsed = SendMessageSchema.parse(messageData) as any;
+    const validatedData: SendMessageDto = {
+      content: parsed.content,
+      type: parsed.type,
+      metadata: parsed.metadata,
+      reply_to_message_id: parsed.reply_to_message_id,
+    };
     return this.messagingService.sendEstateBroadcast(estateId, userId, validatedData);
   }
 

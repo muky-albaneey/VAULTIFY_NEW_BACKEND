@@ -37,8 +37,8 @@ export class NotificationsController {
     @Param('userId') userId: string,
     @Body() payload: NotificationPayload,
   ) {
-    const validatedPayload = NotificationPayloadSchema.parse(payload);
-    return this.notificationsService.sendNotificationToUser(userId, validatedPayload);
+    const parsed = NotificationPayloadSchema.parse(payload) as NotificationPayload;
+    return this.notificationsService.sendNotificationToUser(userId, parsed);
   }
 
   @Post('send/estate/:estateId')
@@ -50,8 +50,8 @@ export class NotificationsController {
     @Param('estateId') estateId: string,
     @Body() payload: NotificationPayload,
   ) {
-    const validatedPayload = NotificationPayloadSchema.parse(payload);
-    return this.notificationsService.sendNotificationToEstate(estateId, validatedPayload);
+    const parsed = NotificationPayloadSchema.parse(payload) as NotificationPayload;
+    return this.notificationsService.sendNotificationToEstate(estateId, parsed);
   }
 
   @Post('send/topic/:topic')
@@ -63,8 +63,8 @@ export class NotificationsController {
     @Param('topic') topic: string,
     @Body() payload: NotificationPayload,
   ) {
-    const validatedPayload = NotificationPayloadSchema.parse(payload);
-    return this.notificationsService.sendTopicNotification(topic, validatedPayload);
+    const parsed = NotificationPayloadSchema.parse(payload) as NotificationPayload;
+    return this.notificationsService.sendTopicNotification(topic, parsed);
   }
 
   @Post('subscribe/topic')

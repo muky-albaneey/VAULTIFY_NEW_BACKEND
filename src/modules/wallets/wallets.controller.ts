@@ -63,7 +63,11 @@ export class WalletsController {
     @CurrentUserId() userId: string,
     @Body() topUpData: TopUpWalletDto,
   ) {
-    const validatedData = TopUpWalletSchema.parse(topUpData);
+    const parsed = TopUpWalletSchema.parse(topUpData) as any;
+    const validatedData: TopUpWalletDto = {
+      amount: parsed.amount,
+      payment_method: parsed.payment_method,
+    };
     return this.walletsService.topUpWallet(userId, validatedData);
   }
 
@@ -75,7 +79,12 @@ export class WalletsController {
     @CurrentUserId() userId: string,
     @Body() transferData: WalletTransferDto,
   ) {
-    const validatedData = WalletTransferSchema.parse(transferData);
+    const parsed = WalletTransferSchema.parse(transferData) as any;
+    const validatedData: WalletTransferDto = {
+      recipient_user_id: parsed.recipient_user_id,
+      amount: parsed.amount,
+      purpose: parsed.purpose,
+    };
     return this.walletsService.transferToUser(userId, validatedData);
   }
 }

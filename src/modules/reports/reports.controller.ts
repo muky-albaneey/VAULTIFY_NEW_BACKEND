@@ -35,7 +35,7 @@ const UpdateReportSchema = z.object({
 });
 
 const UpdateReportStatusSchema = z.object({
-  status: z.enum(['Open', 'Acknowledged', 'In Progress', 'Waiting on Resident', 'Resolved', 'Closed', 'Reopened']),
+  status: z.enum(['Open', 'Acknowledged', 'In Progress', 'Waiting on Resident', 'Resolved', 'Closed', 'Reopened']).default('Open'),
   assigned_to: z.string().optional(),
   sla_target: z.string().datetime().optional(),
 });
@@ -54,7 +54,20 @@ export class ReportsController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateReportDto,
   ) {
-    const validatedData = CreateReportSchema.parse(createData);
+    const parsed = CreateReportSchema.parse(createData) as any;
+    const validatedData: CreateReportDto = {
+      estate_id: parsed.estate_id,
+      category: parsed.category,
+      subject: parsed.subject,
+      details: parsed.details,
+      location: parsed.location,
+      urgency: parsed.urgency,
+      contact_preference: parsed.contact_preference,
+      attachments: parsed.attachments,
+      occurred_on: parsed.occurred_on ? new Date(parsed.occurred_on) : undefined,
+      anonymize_report: parsed.anonymize_report,
+      allow_sharing: parsed.allow_sharing,
+    };
     return this.reportsService.createReport(userId, validatedData);
   }
 
@@ -145,7 +158,18 @@ export class ReportsController {
     @Param('id') reportId: string,
     @Body() updateData: UpdateReportDto,
   ) {
-    const validatedData = UpdateReportSchema.parse(updateData);
+    const parsed = UpdateReportSchema.parse(updateData) as any;
+    const validatedData: UpdateReportDto = {
+      subject: parsed.subject,
+      details: parsed.details,
+      location: parsed.location,
+      urgency: parsed.urgency,
+      contact_preference: parsed.contact_preference,
+      attachments: parsed.attachments,
+      occurred_on: parsed.occurred_on ? new Date(parsed.occurred_on) : undefined,
+      anonymize_report: parsed.anonymize_report,
+      allow_sharing: parsed.allow_sharing,
+    };
     return this.reportsService.updateReport(userId, reportId, validatedData);
   }
 
@@ -159,7 +183,12 @@ export class ReportsController {
     @Param('id') reportId: string,
     @Body() statusData: UpdateReportStatusDto,
   ) {
-    const validatedData = UpdateReportStatusSchema.parse(statusData);
+    const parsed = UpdateReportStatusSchema.parse(statusData) as any;
+    const validatedData: UpdateReportStatusDto = {
+      status: parsed.status || parsed.status,
+      assigned_to: parsed.assigned_to,
+      sla_target: parsed.sla_target ? new Date(parsed.sla_target) : undefined,
+    };
     return this.reportsService.updateReportStatus(reportId, validatedData);
   }
 

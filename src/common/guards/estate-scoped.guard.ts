@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ESTATE_SCOPED_KEY } from './custom.decorators';
+import { ESTATE_SCOPED_KEY } from '../decorators/custom.decorators';
 
 @Injectable()
 export class EstateScopedGuard implements CanActivate {

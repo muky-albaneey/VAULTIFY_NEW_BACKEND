@@ -54,7 +54,7 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "wallets" (
         "wallet_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" character varying NOT NULL,
+        "user_id" uuid NOT NULL,
         "available_balance" numeric(10,2) NOT NULL DEFAULT '0',
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_wallets_user_id" UNIQUE ("user_id"),
@@ -66,7 +66,7 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "wallet_transactions" (
         "wallet_txn_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "wallet_id" character varying NOT NULL,
+        "wallet_id" uuid NOT NULL,
         "amount" numeric(10,2) NOT NULL,
         "direction" character varying NOT NULL,
         "purpose" character varying NOT NULL,
@@ -92,14 +92,16 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "payments" (
         "payment_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" character varying NOT NULL,
+        "user_id" uuid NOT NULL,
         "amount" numeric(10,2) NOT NULL,
         "currency" character varying NOT NULL DEFAULT 'NGN',
-        "provider_id" character varying NOT NULL,
+        "provider_id" uuid NOT NULL,
         "reference" character varying NOT NULL,
         "status" character varying NOT NULL DEFAULT 'pending',
         "paid_at" TIMESTAMP,
         "raw_payload" jsonb,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_payments_reference" UNIQUE ("reference"),
         CONSTRAINT "PK_payments" PRIMARY KEY ("payment_id")
       )
@@ -127,12 +129,12 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "subscriptions" (
         "subscription_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" character varying NOT NULL,
-        "plan_id" character varying NOT NULL,
+        "user_id" uuid NOT NULL,
+        "plan_id" uuid NOT NULL,
         "status" character varying NOT NULL DEFAULT 'active',
         "start_date" TIMESTAMP NOT NULL,
         "end_date" TIMESTAMP NOT NULL,
-        "last_renewal_payment_id" character varying,
+        "last_renewal_payment_id" uuid,
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_subscriptions" PRIMARY KEY ("subscription_id")
@@ -143,8 +145,8 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "family_groups" (
         "family_group_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "head_user_id" character varying NOT NULL,
-        "plan_id" character varying NOT NULL,
+        "head_user_id" uuid NOT NULL,
+        "plan_id" uuid NOT NULL,
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_family_groups" PRIMARY KEY ("family_group_id")
@@ -155,9 +157,9 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "family_members" (
         "family_member_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "family_group_id" character varying NOT NULL,
-        "user_id" character varying NOT NULL,
-        "added_by_user_id" character varying NOT NULL,
+        "family_group_id" uuid NOT NULL,
+        "user_id" uuid NOT NULL,
+        "added_by_user_id" uuid NOT NULL,
         "is_head" boolean NOT NULL DEFAULT false,
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_family_members" PRIMARY KEY ("family_member_id")
@@ -168,11 +170,12 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "device_tokens" (
         "device_token_id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" character varying NOT NULL,
+        "user_id" uuid NOT NULL,
         "token" character varying NOT NULL,
         "platform" character varying NOT NULL,
         "device_id" character varying,
         "last_seen" TIMESTAMP,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_device_tokens" PRIMARY KEY ("device_token_id")
       )
     `);
@@ -181,7 +184,7 @@ export class InitialMigration1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "access_codes" (
         "code" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "creator_user_id" character varying NOT NULL,
+        "creator_user_id" uuid NOT NULL,
         "visitor_name" character varying NOT NULL,
         "visitor_email" character varying,
         "visitor_phone" character varying,

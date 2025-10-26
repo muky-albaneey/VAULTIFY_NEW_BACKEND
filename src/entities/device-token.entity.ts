@@ -9,6 +9,12 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 
+export enum Platform {
+  ANDROID = 'android',
+  IOS = 'ios',
+  WEB = 'web',
+}
+
 @Entity('device_tokens')
 @Index(['user_id', 'platform'])
 export class DeviceToken {
@@ -21,8 +27,11 @@ export class DeviceToken {
   @Column()
   token: string;
 
-  @Column()
-  platform: string;
+  @Column({
+    type: 'enum',
+    enum: Platform,
+  })
+  platform: Platform;
 
   @Column({ nullable: true })
   device_id: string;

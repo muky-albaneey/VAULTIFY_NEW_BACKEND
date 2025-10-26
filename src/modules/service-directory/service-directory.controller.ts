@@ -91,7 +91,19 @@ export class ServiceDirectoryController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateProviderDto,
   ) {
-    const validatedData = CreateProviderSchema.parse(createData);
+    const parsed = CreateProviderSchema.parse(createData) as any;
+    const validatedData: CreateProviderDto = {
+      service_id: parsed.service_id,
+      estate_id: parsed.estate_id,
+      first_name: parsed.first_name,
+      last_name: parsed.last_name,
+      phone: parsed.phone,
+      location: parsed.location,
+      availability: parsed.availability,
+      bio: parsed.bio,
+      skill: parsed.skill,
+      profile_picture_url: parsed.profile_picture_url,
+    };
     return this.serviceDirectoryService.createProvider(userId, validatedData);
   }
 
@@ -136,7 +148,12 @@ export class ServiceDirectoryController {
     @Param('id') providerId: string,
     @Body() reviewData: CreateReviewDto,
   ) {
-    const validatedData = CreateReviewSchema.parse(reviewData);
+    const parsed = CreateReviewSchema.parse(reviewData) as any;
+    const validatedData: CreateReviewDto = {
+      reviewer_name: parsed.reviewer_name,
+      rating: parsed.rating,
+      comment: parsed.comment,
+    };
     return this.serviceDirectoryService.createReview(providerId, validatedData);
   }
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { DeviceToken } from '../../entities/device-token.entity';
@@ -70,10 +70,12 @@ export class NotificationsService {
         .map(({ token }) => token);
 
       if (successfulTokens.length > 0) {
-        await this.deviceTokenRepository.update(
-          { token: successfulTokens },
-          { last_seen: new Date() }
-        );
+        for (const token of successfulTokens) {
+          await this.deviceTokenRepository.update(
+            { token },
+            { last_seen: new Date() }
+          );
+        }
       }
 
       return {

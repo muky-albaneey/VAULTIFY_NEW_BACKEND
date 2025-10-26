@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { User, UserStatus } from '../../entities/user.entity';
 import { UserProfile, UserRole, ApartmentType } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
-import { DeviceToken } from '../../entities/device-token.entity';
+import { DeviceToken, Platform } from '../../entities/device-token.entity';
 
 export interface UpdateProfileDto {
   phone_number?: string;
@@ -15,7 +15,7 @@ export interface UpdateProfileDto {
 
 export interface RegisterDeviceDto {
   token: string;
-  platform: string;
+  platform: Platform;
   device_id?: string;
 }
 
@@ -74,7 +74,7 @@ export class UsersService {
 
     // Check if device token already exists
     let deviceToken = await this.deviceTokenRepository.findOne({
-      where: { token, platform },
+      where: { token, platform: platform as Platform },
     });
 
     if (deviceToken) {
@@ -87,7 +87,7 @@ export class UsersService {
       deviceToken = this.deviceTokenRepository.create({
         user_id: userId,
         token,
-        platform,
+        platform: platform as Platform,
         device_id,
         last_seen: new Date(),
       });
