@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=vaultify_user
+      - DATABASE_PASSWORD=vaultify_password
+      - DATABASE_NAME=vaultify_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    command: >
+      sh -c "
+        echo '🚀 Starting Vaultify Backend...' &&
+        echo '⏳ Waiting for database to be ready...' &&
+        sleep 10 &&
+        echo '🔄 Running database migrations...' &&
+        npm run migration:run &&
+        echo '🌱 Running database seeds...' &&
+        npm run seed:run &&
+        echo '🎯 Starting application...' &&
+        npm run start:prod
+      "
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=vaultify_user
+      - POSTGRES_PASSWORD=vaultify_password
+      - POSTGRES_DB=vaultify_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaultify_user -d vaultify_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

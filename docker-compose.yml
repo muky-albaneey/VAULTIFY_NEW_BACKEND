@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=vaultify_user
+      - DATABASE_PASSWORD=vaultify_password
+      - DATABASE_NAME=vaultify_db
+    depends_on:
+      - postgres
+    volumes:
+      - ./uploads:/app/uploads
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=vaultify_user
+      - POSTGRES_PASSWORD=vaultify_password
+      - POSTGRES_DB=vaultify_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
