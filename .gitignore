@@ -1,3 +1,4 @@
+cat > .gitignore << 'EOF'
 node_modules/
 dist/
 coverage/
@@ -8,3 +9,4 @@ coverage/
 npm-debug.log*
 .DS_Store
 *.tsbuildinfo
+EOF
