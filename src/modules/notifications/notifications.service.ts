@@ -24,23 +24,43 @@ export class NotificationsService {
 
   private initializeFirebase() {
     try {
-      const firebaseConfig = {
-        projectId: this.configService.get('app.firebase.projectId'),
-        privateKey: this.configService.get('app.firebase.privateKey'),
-        clientEmail: this.configService.get('app.firebase.clientEmail'),
-      };
+      const credentialsJson = this.configService.get('app.firebase.credentialsJson');
+      
+      let credential;
+      
+      if (credentialsJson) {
+        // Use JSON credentials from environment variable
+        try {
+          const credentials = JSON.parse(credentialsJson);
+          credential = admin.credential.cert(credentials);
+          this.logger.log('Firebase initialized with GOOGLE_APPLICATION_CREDENTIALS_JSON');
+        } catch (parseError) {
+          this.logger.error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:', parseError);
+          return;
+        }
+      } else {
+        // Fallback to individual credentials
+        const firebaseConfig = {
+          projectId: this.configService.get('app.firebase.projectId'),
+          privateKey: this.configService.get('app.firebase.privateKey'),
+          clientEmail: this.configService.get('app.firebase.clientEmail'),
+        };
 
-      if (!firebaseConfig.projectId || !firebaseConfig.privateKey || !firebaseConfig.clientEmail) {
-        this.logger.warn('Firebase configuration is incomplete. Push notifications will be disabled.');
-        return;
-      }
+        if (!firebaseConfig.projectId || !firebaseConfig.privateKey || !firebaseConfig.clientEmail) {
+          this.logger.warn('Firebase configuration is incomplete. Push notifications will be disabled.');
+          return;
+        }
 
-      this.firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({
+        credential = admin.credential.cert({
           projectId: firebaseConfig.projectId,
           privateKey: firebaseConfig.privateKey,
           clientEmail: firebaseConfig.clientEmail,
-        }),
+        });
+        this.logger.log('Firebase initialized with individual credentials');
+      }
+
+      this.firebaseApp = admin.initializeApp({
+        credential,
       });
 
       this.logger.log('Firebase initialized successfully');

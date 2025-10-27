@@ -25,6 +25,9 @@ export const AppConfig = registerAs('app', () => ({
   
   // Firebase Configuration
   firebase: {
+    // Option 1: Use GOOGLE_APPLICATION_CREDENTIALS_JSON (recommended for deployment)
+    credentialsJson: process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
+    // Option 2: Use individual credentials (legacy)
     projectId: process.env.FIREBASE_PROJECT_ID,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,

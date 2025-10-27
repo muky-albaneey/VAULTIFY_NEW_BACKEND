@@ -11,7 +11,7 @@ import { z } from 'zod';
 // Validation schemas
 const UpdateProfileSchema = z.object({
   phone_number: z.string().optional(),
-  apartment_type: z.enum(['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom', 'Penthouse', 'Duplex']).optional(),
+  apartment_type: z.enum(['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom', '5-Bedroom', 'Duplex']).optional(),
   house_address: z.string().optional(),
   profile_picture_url: z.string().url().optional(),
 });

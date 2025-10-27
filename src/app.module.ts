@@ -28,6 +28,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module';
 import { BankServiceChargeModule } from './modules/bank-service-charges/bank-service-charges.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
+import { AnnouncementsModule } from './modules/announcements/announcements.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     PaymentsModule,
     BankServiceChargeModule,
     AlertsModule,
+    AnnouncementsModule,
   ],
 })
 export class AppModule {}
