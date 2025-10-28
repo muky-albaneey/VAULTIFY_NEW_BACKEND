@@ -1,0 +1,46 @@
+name: Deploy App
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: SSH into the server and deploy
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e  # Exit on error
+            if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+              echo "Deploying from main branch..."
+              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your new backend directory
+              git pull origin main  # Pull the latest code
+              npm install  # Install dependencies
+              npm run build  # Build the app (if required)
+              pm2 restart vaultify-v2  # Restart PM2 app
+            elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+              echo "Deploying from dev branch..."
+              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your new backend directory
+              git pull origin dev  # Pull the latest code from dev branch
+              npm install  # Install dependencies
+              npm run build  # Build the app (if required)
+              pm2 restart vaultify-v2  # Restart PM2 app
+            fi
