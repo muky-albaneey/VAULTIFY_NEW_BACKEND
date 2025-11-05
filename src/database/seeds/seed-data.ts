@@ -18,7 +18,7 @@ import { AccessCode } from '../../entities/access-code.entity';
 import { DeviceToken, Platform } from '../../entities/device-token.entity';
 import { Report, ReportCategory, ReportUrgency, ReportStatus, ContactPreference } from '../../entities/report.entity';
 import { Plan, PlanType, BillingCycle } from '../../entities/plan.entity';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 export class SeedData {
   public static async run(dataSource: DataSource): Promise<void> {

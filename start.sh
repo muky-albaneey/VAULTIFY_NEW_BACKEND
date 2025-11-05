@@ -17,6 +17,12 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
+psql -h 203.161.56.225 -p 5432 -U vaultify_user -d vaultify_db
+
+
+203.161.56.225
+
+
 # Check if PostgreSQL is running
 echo "🔍 Checking PostgreSQL connection..."
 if ! pg_isready -h localhost -p 5432 > /dev/null 2>&1; then
