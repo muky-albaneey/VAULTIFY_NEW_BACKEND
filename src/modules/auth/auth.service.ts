@@ -188,7 +188,7 @@ export class AuthService {
       );
     }
 
-    // Generate tokens //
+    // Generate tokens
     const tokens = await this.generateTokens(user);
 
     return {
