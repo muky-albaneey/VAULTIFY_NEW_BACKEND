@@ -9,10 +9,12 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalStrategy } from './local.strategy';
 import { User } from '../../entities/user.entity';
+import { UserProfile } from '../../entities/user-profile.entity';
+import { Estate } from '../../entities/estate.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, UserProfile, Estate]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

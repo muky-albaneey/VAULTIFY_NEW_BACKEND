@@ -33,8 +33,8 @@ export class EstatesController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create new estate (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create new estate (Admin/Super Admin only)' })
   @ApiResponse({ status: 201, description: 'Estate created successfully' })
   async createEstate(@Body() createData: CreateEstateDto) {
     const validatedData = CreateEstateSchema.parse(createData) as CreateEstateDto;
@@ -72,8 +72,8 @@ export class EstatesController {
 
   @Put(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update estate (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update estate (Admin/Super Admin only)' })
   @ApiResponse({ status: 200, description: 'Estate updated successfully' })
   async updateEstate(
     @Param('id') estateId: string,
@@ -85,8 +85,8 @@ export class EstatesController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete estate (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete estate (Admin/Super Admin only)' })
   @ApiResponse({ status: 200, description: 'Estate deleted successfully' })
   async deleteEstate(@Param('id') estateId: string) {
     return this.estatesService.deleteEstate(estateId);

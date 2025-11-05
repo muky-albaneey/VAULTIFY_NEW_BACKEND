@@ -19,6 +19,7 @@ export enum UserRole {
   RESIDENCE = 'Residence',
   SECURITY_PERSONNEL = 'Security Personnel',
   ADMIN = 'Admin',
+  SUPER_ADMIN = 'Super Admin',
 }
 
 export enum ApartmentType {

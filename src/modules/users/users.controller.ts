@@ -1,11 +1,12 @@
-import { Controller, Get, Put, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UsersService, UpdateProfileDto, RegisterDeviceDto } from './users.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/custom.decorators';
 import { CurrentUserId, CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../entities/user-profile.entity';
+import { UserRole, ApartmentType } from '../../entities/user-profile.entity';
+import { UserStatus } from '../../entities/user.entity';
 import { z } from 'zod';
 
 // Validation schemas
@@ -103,8 +104,8 @@ export class UsersController {
 
   @Put(':id/status')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update user status (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update user status (Admin/Super Admin only)' })
   @ApiResponse({ status: 200, description: 'User status updated successfully' })
   async updateUserStatus(
     @Param('id') userId: string,
@@ -113,10 +114,28 @@ export class UsersController {
     return this.usersService.updateUserStatus(userId, body.status as any);
   }
 
+  @Put(':id/activate')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Activate user account (Admin/Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'User activated successfully' })
+  async activateUser(@Param('id') userId: string) {
+    return this.usersService.updateUserStatus(userId, UserStatus.ACTIVE);
+  }
+
+  @Put(':id/suspend')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Suspend user account (Admin/Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'User suspended successfully' })
+  async suspendUser(@Param('id') userId: string) {
+    return this.usersService.updateUserStatus(userId, UserStatus.SUSPENDED);
+  }
+
   @Get('estate/:estateId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL)
-  @ApiOperation({ summary: 'Get users by estate (Admin/Security only)' })
+  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get users by estate (Admin/Security/Super Admin only)' })
   @ApiQuery({ name: 'page', description: 'Page number', required: false })
   @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -126,5 +145,57 @@ export class UsersController {
     @Query('limit') limit: number = 20,
   ) {
     return this.usersService.getUsersByEstate(estateId, page, limit);
+  }
+
+  @Put(':id/assign-estate')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Assign estate to user (Admin/Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'Estate assigned successfully' })
+  async assignEstateToUser(
+    @Param('id') userId: string,
+    @Body() body: {
+      estate_id: string;
+      role: UserRole;
+      apartment_type?: ApartmentType;
+      house_address?: string;
+      phone_number?: string;
+    },
+  ) {
+    return this.usersService.assignEstateToUser(
+      userId,
+      body.estate_id,
+      body.role,
+      body.apartment_type,
+      body.house_address,
+      body.phone_number,
+    );
+  }
+
+  @Put(':id/make-admin')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Make user estate admin (Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'User promoted to Estate Admin' })
+  async makeEstateAdmin(
+    @Param('id') userId: string,
+    @Body() body: { estate_id: string },
+  ) {
+    return this.usersService.makeEstateAdmin(userId, body.estate_id);
+  }
+
+  @Put(':id/make-super-admin')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Make user super admin (Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'User promoted to Super Admin' })
+  async makeSuperAdmin(
+    @Param('id') userId: string,
+    @Body() body: { confirm: boolean },
+  ) {
+    if (!body.confirm) {
+      throw new BadRequestException('Confirmation required');
+    }
+    return this.usersService.makeSuperAdmin(userId);
   }
 }

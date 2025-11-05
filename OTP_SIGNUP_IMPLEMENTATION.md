@@ -84,9 +84,12 @@ Content-Type: application/json
   "email": "user@example.com",
   "password": "password123",
   "first_name": "John",
-  "last_name": "Doe"
+  "last_name": "Doe",
+  "estate_id": "estate-uuid"
 }
 ```
+
+**Note:** `estate_id` is required. Estates must be created by admins before users can register.
 
 **Response:**
 ```json
@@ -95,6 +98,11 @@ Content-Type: application/json
   "user_id": "uuid-here"
 }
 ```
+
+**What Happens:**
+- User profile is automatically created with `estate_id` assigned
+- User role is set to `Residence` (default)
+- User can verify OTP and login with estate already assigned
 
 ### 2. Verify OTP
 ```http

@@ -49,6 +49,18 @@ export class BankServiceCharge {
   @Column()
   account_number: string;
 
+  @Column({ default: false })
+  is_validated: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  validated_at: Date;
+
+  @Column({ nullable: true })
+  validated_by: string;
+
+  @Column({ type: 'text', nullable: true })
+  validation_notes: string;
+
   @CreateDateColumn()
   created_at: Date;
 

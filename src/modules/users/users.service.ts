@@ -151,13 +151,166 @@ export class UsersService {
   async getUsersByEstate(estateId: string, page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
     
-    // This would need proper estate-user relationship
-    // For now, returning all active users
-    return await this.userRepository.find({
-      where: { status: UserStatus.ACTIVE },
+    const [users, total] = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .where('profile.estate_id = :estateId', { estateId })
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      data: users,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async assignEstateToUser(
+    userId: string,
+    estateId: string,
+    role: UserRole,
+    apartmentType?: ApartmentType,
+    houseAddress?: string,
+    phoneNumber?: string,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
       relations: ['profile'],
-      skip: offset,
-      take: limit,
     });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify estate exists
+    const estate = await this.estateRepository.findOne({
+      where: { estate_id: estateId },
+    });
+
+    if (!estate) {
+      throw new NotFoundException('Estate not found');
+    }
+
+    // Create or update profile
+    let profile = await this.userProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      profile = this.userProfileRepository.create({
+        user_id: userId,
+        estate_id: estateId,
+        role,
+        apartment_type: apartmentType,
+        house_address: houseAddress,
+        phone_number: phoneNumber,
+      });
+    } else {
+      profile.estate_id = estateId;
+      profile.role = role;
+      if (apartmentType) profile.apartment_type = apartmentType;
+      if (houseAddress) profile.house_address = houseAddress;
+      if (phoneNumber) profile.phone_number = phoneNumber;
+    }
+
+    await this.userProfileRepository.save(profile);
+
+    return {
+      user_id: userId,
+      estate_id: estateId,
+      role,
+      message: 'Estate assigned successfully',
+    };
+  }
+
+  async makeEstateAdmin(userId: string, estateId: string) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+      relations: ['profile'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new BadRequestException('User must be active to become admin');
+    }
+
+    // Verify estate exists
+    const estate = await this.estateRepository.findOne({
+      where: { estate_id: estateId },
+    });
+
+    if (!estate) {
+      throw new NotFoundException('Estate not found');
+    }
+
+    // Create or update profile
+    let profile = await this.userProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      profile = this.userProfileRepository.create({
+        user_id: userId,
+        estate_id: estateId,
+        role: UserRole.ADMIN,
+      });
+    } else {
+      profile.estate_id = estateId;
+      profile.role = UserRole.ADMIN;
+    }
+
+    await this.userProfileRepository.save(profile);
+
+    return {
+      user_id: userId,
+      role: UserRole.ADMIN,
+      estate_id: estateId,
+      message: 'User promoted to Estate Admin',
+    };
+  }
+
+  async makeSuperAdmin(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+      relations: ['profile'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new BadRequestException('User must be active to become super admin');
+    }
+
+    // Create or update profile
+    let profile = await this.userProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      profile = this.userProfileRepository.create({
+        user_id: userId,
+        role: UserRole.SUPER_ADMIN,
+      });
+    } else {
+      profile.role = UserRole.SUPER_ADMIN;
+      // Super Admin doesn't need estate_id
+      profile.estate_id = null;
+    }
+
+    await this.userProfileRepository.save(profile);
+
+    return {
+      user_id: userId,
+      role: UserRole.SUPER_ADMIN,
+      message: 'User promoted to Super Admin',
+    };
   }
 }

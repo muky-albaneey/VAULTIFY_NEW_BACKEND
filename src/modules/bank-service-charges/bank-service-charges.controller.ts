@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/custom.decorators';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../entities/user-profile.entity';
+import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 
 const CreateBankServiceChargeSchema = z.object({
@@ -139,8 +140,8 @@ export class BankServiceChargeController {
 
   @Get('estate/:estateId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL)
-  @ApiOperation({ summary: 'Get bank service charges by estate (Admin/Security only)' })
+  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get bank service charges by estate (Admin/Security/Super Admin only)' })
   @ApiQuery({ name: 'page', description: 'Page number', required: false })
   @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
   @ApiResponse({ status: 200, description: 'Bank service charges retrieved successfully' })
@@ -150,5 +151,27 @@ export class BankServiceChargeController {
     @Query('limit') limit: number = 20,
   ) {
     return this.bankServiceChargeService.getBankServiceChargesByEstate(estateId, page, limit);
+  }
+
+  @Put(':bscId/validate')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Validate service charge (Admin/Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'Service charge validated successfully' })
+  @ApiResponse({ status: 404, description: 'Service charge not found' })
+  async validateServiceCharge(
+    @CurrentUserId() adminUserId: string,
+    @Param('bscId') bscId: string,
+    @Body() body: { is_validated: boolean; notes?: string },
+  ) {
+    if (typeof body.is_validated !== 'boolean') {
+      throw new BadRequestException('is_validated must be a boolean');
+    }
+    return this.bankServiceChargeService.validateServiceCharge(
+      bscId,
+      adminUserId,
+      body.is_validated,
+      body.notes,
+    );
   }
 }

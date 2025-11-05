@@ -298,4 +298,27 @@ export class BankServiceChargeService {
       totalPages: Math.ceil(total / limit),
     };
   }
+
+  async validateServiceCharge(
+    bscId: string,
+    adminUserId: string,
+    isValidated: boolean,
+    notes?: string,
+  ) {
+    const bankServiceCharge = await this.bankServiceChargeRepository.findOne({
+      where: { bsc_id: bscId },
+      relations: ['user', 'user.profile'],
+    });
+
+    if (!bankServiceCharge) {
+      throw new NotFoundException('Bank service charge record not found');
+    }
+
+    bankServiceCharge.is_validated = isValidated;
+    bankServiceCharge.validated_at = isValidated ? new Date() : null;
+    bankServiceCharge.validated_by = isValidated ? adminUserId : null;
+    bankServiceCharge.validation_notes = notes || null;
+
+    return await this.bankServiceChargeRepository.save(bankServiceCharge);
+  }
 }

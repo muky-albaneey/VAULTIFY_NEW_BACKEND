@@ -17,6 +17,7 @@ const RegisterSchema = z.object({
   password: z.string().min(6),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
+  estate_id: z.string().uuid('Estate ID must be a valid UUID'),
 });
 
 const RefreshTokenSchema = z.object({
@@ -62,8 +63,8 @@ export class AuthController {
   @Post('verify-otp')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and complete registration' })
-  @ApiResponse({ status: 200, description: 'OTP verified successfully' })
+  @ApiOperation({ summary: 'Verify OTP and complete email verification (User remains pending until admin activates)' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully. User status remains pending until admin activation.' })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async verifyOTP(@Body() body: { user_id: string; otp: string }) {

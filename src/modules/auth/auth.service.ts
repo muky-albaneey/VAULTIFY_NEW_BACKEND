@@ -5,6 +5,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserStatus } from '../../entities/user.entity';
+import { UserProfile } from '../../entities/user-profile.entity';
+import { Estate } from '../../entities/estate.entity';
 import { JwtPayload, RefreshTokenPayload } from '../../common/interfaces/common.interface';
 import { EmailService } from '../../common/services/email.service';
 
@@ -18,6 +20,7 @@ export interface RegisterDto {
   password: string;
   first_name: string;
   last_name: string;
+  estate_id: string;
 }
 
 export interface AuthResponse {
@@ -37,18 +40,28 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     public readonly userRepository: Repository<User>,
+    @InjectRepository(UserProfile)
+    private userProfileRepository: Repository<UserProfile>,
+    @InjectRepository(Estate)
+    private estateRepository: Repository<Estate>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private emailService: EmailService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<{ message: string; user_id: string }> {
-    const { email, password, first_name, last_name } = registerDto;
+    const { email, password, first_name, last_name, estate_id } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({ where: { email } });
     if (existingUser) {
       throw new BadRequestException('User with this email already exists');
+    }
+
+    // Verify estate exists
+    const estate = await this.estateRepository.findOne({ where: { estate_id } });
+    if (!estate) {
+      throw new BadRequestException('Estate not found. Please provide a valid estate ID.');
     }
 
     // Hash password
@@ -73,6 +86,14 @@ export class AuthService {
 
     const savedUser = await this.userRepository.save(user);
 
+    // Create user profile with estate_id assigned
+    const userProfile = this.userProfileRepository.create({
+      user_id: savedUser.user_id,
+      estate_id: estate_id,
+      role: 'Residence', // Default role, can be changed by admin later
+    });
+    await this.userProfileRepository.save(userProfile);
+
     // Send OTP email
     await this.emailService.sendOTP(email, `${first_name} ${last_name}`, otp);
 
@@ -82,7 +103,7 @@ export class AuthService {
     };
   }
 
-  async verifyOTP(userId: string, otp: string): Promise<AuthResponse> {
+  async verifyOTP(userId: string, otp: string): Promise<{ message: string; user_id: string; status: UserStatus }> {
     // Find user
     const user = await this.userRepository.findOne({ where: { user_id: userId } });
     if (!user) {
@@ -104,24 +125,15 @@ export class AuthService {
       throw new BadRequestException('Verification code has expired');
     }
 
-    // Update user status and clear OTP
-    user.status = UserStatus.ACTIVE;
+    // Clear OTP but keep status as PENDING - admin must activate user
     user.verification_code = null;
     user.verification_code_expires = null;
     await this.userRepository.save(user);
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user);
-
     return {
-      ...tokens,
-      user: {
-        user_id: user.user_id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        status: user.status,
-      },
+      message: 'Email verified successfully. Please wait for admin approval to activate your account.',
+      user_id: user.user_id,
+      status: user.status,
     };
   }
 
@@ -146,7 +158,7 @@ export class AuthService {
     }
 
     if (user.status === UserStatus.PENDING) {
-      throw new UnauthorizedException('Please verify your email to login');
+      throw new UnauthorizedException('Account is pending admin approval. Please wait for activation.');
     }
 
     // Generate tokens
@@ -170,16 +182,19 @@ export class AuthService {
         secret: this.configService.get('app.jwt.refreshSecret'),
       }) as RefreshTokenPayload;
 
-      const user = await this.userRepository.findOne({ where: { user_id: payload.sub } });
-      if (!user || user.status === UserStatus.SUSPENDED) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
+    const user = await this.userRepository.findOne({
+      where: { user_id: payload.sub },
+      relations: ['profile'],
+    });
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
 
-      const jwtPayload: JwtPayload = {
-        sub: user.user_id,
-        email: user.email,
-        role: 'Residence', // This should come from user profile
-      };
+    const jwtPayload: JwtPayload = {
+      sub: user.user_id,
+      email: user.email,
+      role: user.profile?.role || 'Residence',
+    };
 
       const access_token = this.jwtService.sign(jwtPayload, {
         secret: this.configService.get('app.jwt.secret'),
@@ -192,19 +207,26 @@ export class AuthService {
     }
   }
 
-  async validateUser(payload: JwtPayload): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { user_id: payload.sub } });
+  async validateUser(payload: JwtPayload): Promise<any> {
+    const user = await this.userRepository.findOne({
+      where: { user_id: payload.sub },
+      relations: ['profile'],
+    });
     if (!user || user.status === UserStatus.SUSPENDED) {
       throw new UnauthorizedException('User not found or suspended');
     }
-    return user;
+    // Return user with role from profile for roles guard
+    return {
+      ...user,
+      role: user.profile?.role || 'Residence',
+    };
   }
 
-  private async generateTokens(user: User): Promise<{ access_token: string; refresh_token: string }> {
+  private async generateTokens(user: User, role?: string): Promise<{ access_token: string; refresh_token: string }> {
     const jwtPayload: JwtPayload = {
       sub: user.user_id,
       email: user.email,
-      role: 'Residence', // This should come from user profile
+      role: role || 'Residence',
     };
 
     const refreshPayload: RefreshTokenPayload = {
