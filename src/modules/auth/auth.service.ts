@@ -69,7 +69,7 @@ export class AuthService {
       throw new BadRequestException("User with this email already exists");
     }
 
-    // Verify estate exists
+    // Verify estate exists //
     const estate = await this.estateRepository.findOne({
       where: { estate_id },
     });
