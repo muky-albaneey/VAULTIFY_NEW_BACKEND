@@ -79,7 +79,7 @@ export class AuthService {
       );
     }
 
-    // Hash password
+    // Hash password//
     const saltRounds = this.configService.get("security.bcryptRounds");
     const password_hash = await bcrypt.hash(password, saltRounds);
 
