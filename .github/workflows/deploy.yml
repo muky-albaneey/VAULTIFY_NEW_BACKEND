@@ -29,18 +29,21 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e  # Exit on error
+            echo "Deploying from branch: $GITHUB_REF"
             if [ "${{ github.ref }}" == "refs/heads/main" ]; then
               echo "Deploying from main branch..."
-              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your new backend directory
+              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your backend directory
               git pull origin main  # Pull the latest code
               npm install  # Install dependencies
               npm run build  # Build the app (if required)
               pm2 restart vaultify-v2  # Restart PM2 app
             elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
               echo "Deploying from dev branch..."
-              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your new backend directory
+              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your backend directory
               git pull origin dev  # Pull the latest code from dev branch
               npm install  # Install dependencies
               npm run build  # Build the app (if required)
               pm2 restart vaultify-v2  # Restart PM2 app
+            else
+              echo "No deployment action for this branch."
             fi
