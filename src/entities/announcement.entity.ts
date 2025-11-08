@@ -72,6 +72,9 @@ export class Announcement {
     utility_account_id?: string;
   }; // For payment reminders
 
+  @Column({ type: 'jsonb', nullable: true })
+  image_urls: string[]; // Optional array of image URLs
+
   @Column({ default: true })
   is_active: boolean;
 

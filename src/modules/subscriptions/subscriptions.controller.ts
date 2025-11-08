@@ -1,8 +1,11 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { SubscriptionsService, ActivateSubscriptionDto, AddFamilyMemberDto, RemoveFamilyMemberDto } from './subscriptions.service';
+import { SubscriptionsService, ActivateSubscriptionDto, AddFamilyMemberDto, RemoveFamilyMemberDto, GrantFreeSubscriptionDto } from './subscriptions.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/custom.decorators';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
+import { UserRole } from '../../entities/user-profile.entity';
 import { z } from 'zod';
 
 // Validation schemas
@@ -21,6 +24,12 @@ const RemoveFamilyMemberSchema = z.object({
 
 const RenewSubscriptionSchema = z.object({
   payment_method: z.enum(['wallet', 'external']),
+});
+
+const GrantFreeSubscriptionSchema = z.object({
+  user_id: z.string().uuid(),
+  plan_id: z.string().uuid(),
+  duration_days: z.number().positive().min(1),
 });
 
 @ApiTags('Subscriptions')
@@ -112,5 +121,28 @@ export class SubscriptionsController {
   ) {
     const validatedData = RemoveFamilyMemberSchema.parse(memberData) as RemoveFamilyMemberDto;
     return this.subscriptionsService.removeFamilyMember(userId, validatedData);
+  }
+
+  @Post('admin/grant-free')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Grant free subscription to user (Super Admin only)' })
+  @ApiResponse({ status: 201, description: 'Free subscription granted successfully' })
+  @ApiResponse({ status: 400, description: 'User already has active subscription' })
+  async grantFreeSubscription(
+    @CurrentUserId() adminUserId: string,
+    @Body() grantData: GrantFreeSubscriptionDto,
+  ) {
+    const validatedData = GrantFreeSubscriptionSchema.parse(grantData) as GrantFreeSubscriptionDto;
+    return this.subscriptionsService.grantFreeSubscription(adminUserId, validatedData);
+  }
+
+  @Post('admin/check-expired')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Manually check and update expired subscriptions (Super Admin/Estate Admin only)' })
+  @ApiResponse({ status: 200, description: 'Expiration check completed' })
+  async checkExpiredSubscriptions() {
+    return this.subscriptionsService.checkAndUpdateExpiredSubscriptions();
   }
 }

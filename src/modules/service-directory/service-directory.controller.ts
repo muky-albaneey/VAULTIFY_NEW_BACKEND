@@ -16,6 +16,7 @@ const CreateProviderSchema = z.object({
   bio: z.string().optional(),
   skill: z.string().optional(),
   profile_picture_url: z.string().url().optional(),
+  photos: z.array(z.string().url()).max(5).optional().describe('Array of image URLs (up to 5 photos to showcase work)'),
 });
 
 const UpdateProviderSchema = z.object({
@@ -103,6 +104,7 @@ export class ServiceDirectoryController {
       bio: parsed.bio,
       skill: parsed.skill,
       profile_picture_url: parsed.profile_picture_url,
+      photos: parsed.photos,
     };
     return this.serviceDirectoryService.createProvider(userId, validatedData);
   }
@@ -132,13 +134,25 @@ export class ServiceDirectoryController {
   }
 
   @Post('providers/:id/photos')
-  @ApiOperation({ summary: 'Add provider photo' })
+  @ApiOperation({ summary: 'Add provider photo (max 5 photos per provider)' })
   @ApiResponse({ status: 201, description: 'Photo added successfully' })
+  @ApiResponse({ status: 400, description: 'Maximum 5 photos allowed' })
   async addProviderPhoto(
     @Param('id') providerId: string,
     @Body() body: { image_url: string },
   ) {
     return this.serviceDirectoryService.addProviderPhoto(providerId, body.image_url);
+  }
+
+  @Delete('providers/:id/photos/:photoId')
+  @ApiOperation({ summary: 'Delete provider photo' })
+  @ApiResponse({ status: 200, description: 'Photo deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Photo not found' })
+  async deleteProviderPhoto(
+    @Param('id') providerId: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.serviceDirectoryService.deleteProviderPhoto(providerId, photoId);
   }
 
   @Post('providers/:id/reviews')

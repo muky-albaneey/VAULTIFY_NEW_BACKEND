@@ -4,12 +4,6 @@ import { Repository, DataSource } from 'typeorm';
 import { BankServiceCharge, PaymentFrequency } from '../../entities/bank-service-charge.entity';
 import { BankServiceChargeFile } from '../../entities/bank-service-charge-file.entity';
 import { User } from '../../entities/user.entity';
-import { Payment, PaymentStatus } from '../../entities/payment.entity';
-import { WalletTransaction, TransactionDirection, TransactionPurpose, TransactionStatus } from '../../entities/wallet-transaction.entity';
-import { Wallet } from '../../entities/wallet.entity';
-import { WalletsService } from '../wallets/wallets.service';
-import { PaymentsService } from '../payments/payments.service';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface CreateBankServiceChargeDto {
   service_charge: number;
@@ -29,13 +23,19 @@ export interface UpdateBankServiceChargeDto {
   account_number?: string;
 }
 
-export interface PayServiceChargeDto {
-  payment_method: 'wallet' | 'external';
-  amount?: number;
-}
-
 export interface UploadServiceChargeFileDto {
   file_url: string;
+}
+
+export interface AdminUpdateServiceChargeDto {
+  service_charge?: number;
+  paid_charge?: number;
+  payment_frequency?: PaymentFrequency;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  is_validated?: boolean;
+  validation_notes?: string;
 }
 
 @Injectable()
@@ -47,14 +47,6 @@ export class BankServiceChargeService {
     private bankServiceChargeFileRepository: Repository<BankServiceChargeFile>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(Payment)
-    private paymentRepository: Repository<Payment>,
-    @InjectRepository(WalletTransaction)
-    private walletTransactionRepository: Repository<WalletTransaction>,
-    @InjectRepository(Wallet)
-    private walletRepository: Repository<Wallet>,
-    private walletsService: WalletsService,
-    private paymentsService: PaymentsService,
     private dataSource: DataSource,
   ) {}
 
@@ -107,6 +99,7 @@ export class BankServiceChargeService {
     return bankServiceCharge;
   }
 
+  // Users can only update basic info, not payment amounts
   async updateBankServiceCharge(userId: string, updateData: UpdateBankServiceChargeDto) {
     const bankServiceCharge = await this.bankServiceChargeRepository.findOne({
       where: { user_id: userId },
@@ -116,92 +109,18 @@ export class BankServiceChargeService {
       throw new NotFoundException('Bank service charge record not found');
     }
 
-    // Update fields
-    Object.assign(bankServiceCharge, updateData);
-
-    // Recalculate outstanding charge if service_charge or paid_charge changed
-    if (updateData.service_charge !== undefined || updateData.paid_charge !== undefined) {
-      bankServiceCharge.outstanding_charge = bankServiceCharge.service_charge - bankServiceCharge.paid_charge;
+    // Users can only update bank details, not payment amounts
+    const allowedFields = ['bank_name', 'account_name', 'account_number', 'payment_frequency'];
+    const updateFields: Partial<BankServiceCharge> = {};
+    
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined) {
+        updateFields[field] = updateData[field];
+      }
     }
 
+    Object.assign(bankServiceCharge, updateFields);
     return await this.bankServiceChargeRepository.save(bankServiceCharge);
-  }
-
-  async payServiceCharge(userId: string, paymentData: PayServiceChargeDto) {
-    const { payment_method, amount } = paymentData;
-
-    const bankServiceCharge = await this.bankServiceChargeRepository.findOne({
-      where: { user_id: userId },
-    });
-
-    if (!bankServiceCharge) {
-      throw new NotFoundException('Bank service charge record not found');
-    }
-
-    const paymentAmount = amount || bankServiceCharge.outstanding_charge;
-
-    if (paymentAmount <= 0) {
-      throw new BadRequestException('Payment amount must be greater than 0');
-    }
-
-    if (paymentAmount > bankServiceCharge.outstanding_charge) {
-      throw new BadRequestException('Payment amount cannot exceed outstanding charge');
-    }
-
-    let payment: Payment | null = null;
-
-    if (payment_method === 'wallet') {
-      // Debit wallet
-      await this.walletsService.debitWallet(
-        userId,
-        paymentAmount,
-        TransactionPurpose.SERVICE_CHARGE_PAYMENT,
-      );
-
-      // Create payment record
-      payment = this.paymentRepository.create({
-        user_id: userId,
-        amount: paymentAmount,
-        currency: 'NGN',
-        provider_id: 'wallet', // This should be a proper provider ID
-        reference: `BSC_${uuidv4()}`,
-        status: PaymentStatus.SUCCESS,
-        paid_at: new Date(),
-        raw_payload: {
-          purpose: 'service_charge_payment',
-          bank_service_charge_id: bankServiceCharge.bsc_id,
-        },
-      });
-
-      payment = await this.paymentRepository.save(payment);
-    } else {
-      // External payment
-      payment = this.paymentRepository.create({
-        user_id: userId,
-        amount: paymentAmount,
-        currency: 'NGN',
-        provider_id: 'external', // This should be a proper provider ID
-        reference: `BSC_${uuidv4()}`,
-        status: PaymentStatus.PENDING,
-        raw_payload: {
-          purpose: 'service_charge_payment',
-          bank_service_charge_id: bankServiceCharge.bsc_id,
-        },
-      });
-
-      payment = await this.paymentRepository.save(payment);
-    }
-
-    // Update bank service charge
-    bankServiceCharge.paid_charge += paymentAmount;
-    bankServiceCharge.outstanding_charge -= paymentAmount;
-    await this.bankServiceChargeRepository.save(bankServiceCharge);
-
-    return {
-      payment: payment,
-      bank_service_charge: bankServiceCharge,
-      payment_url: payment_method === 'external' ? `https://paystack.com/pay/${payment.reference}` : null,
-    };
   }
 
   async uploadServiceChargeFile(userId: string, bscId: string, uploadData: UploadServiceChargeFileDto) {
@@ -318,6 +237,66 @@ export class BankServiceChargeService {
     bankServiceCharge.validated_at = isValidated ? new Date() : null;
     bankServiceCharge.validated_by = isValidated ? adminUserId : null;
     bankServiceCharge.validation_notes = notes || null;
+
+    return await this.bankServiceChargeRepository.save(bankServiceCharge);
+  }
+
+  async adminUpdateServiceCharge(
+    bscId: string,
+    adminUserId: string,
+    updateData: AdminUpdateServiceChargeDto,
+  ) {
+    const bankServiceCharge = await this.bankServiceChargeRepository.findOne({
+      where: { bsc_id: bscId },
+      relations: ['user', 'user.profile'],
+    });
+
+    if (!bankServiceCharge) {
+      throw new NotFoundException('Bank service charge record not found');
+    }
+
+    // Update allowed fields
+    if (updateData.service_charge !== undefined) {
+      bankServiceCharge.service_charge = updateData.service_charge;
+    }
+
+    if (updateData.paid_charge !== undefined) {
+      bankServiceCharge.paid_charge = updateData.paid_charge;
+    }
+
+    if (updateData.payment_frequency !== undefined) {
+      bankServiceCharge.payment_frequency = updateData.payment_frequency;
+    }
+
+    if (updateData.bank_name !== undefined) {
+      bankServiceCharge.bank_name = updateData.bank_name;
+    }
+
+    if (updateData.account_name !== undefined) {
+      bankServiceCharge.account_name = updateData.account_name;
+    }
+
+    if (updateData.account_number !== undefined) {
+      bankServiceCharge.account_number = updateData.account_number;
+    }
+
+    if (updateData.is_validated !== undefined) {
+      bankServiceCharge.is_validated = updateData.is_validated;
+      bankServiceCharge.validated_at = updateData.is_validated ? new Date() : null;
+      bankServiceCharge.validated_by = updateData.is_validated ? adminUserId : null;
+    }
+
+    if (updateData.validation_notes !== undefined) {
+      bankServiceCharge.validation_notes = updateData.validation_notes;
+    }
+
+    // Auto-calculate outstanding_charge whenever service_charge or paid_charge changes
+    bankServiceCharge.outstanding_charge = bankServiceCharge.service_charge - bankServiceCharge.paid_charge;
+
+    // Ensure outstanding_charge is not negative
+    if (bankServiceCharge.outstanding_charge < 0) {
+      bankServiceCharge.outstanding_charge = 0;
+    }
 
     return await this.bankServiceChargeRepository.save(bankServiceCharge);
   }

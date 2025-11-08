@@ -56,12 +56,28 @@ export class AlertsService {
       throw new NotFoundException('Sender not found');
     }
 
+    if (!sender.profile) {
+      throw new NotFoundException('User profile not found');
+    }
+
+    // Ensure estate scoping: if recipient type is 'estate' but no estate_id provided, use sender's estate
+    let finalRecipients = recipients;
+    if (recipients.type === 'estate' && !recipients.estate_id) {
+      finalRecipients = {
+        type: 'estate',
+        estate_id: sender.profile.estate_id,
+      };
+    } else if (recipients.type === 'estate' && recipients.estate_id !== sender.profile.estate_id) {
+      // Prevent residents from sending alerts to other estates
+      throw new BadRequestException('You can only send alerts to your own estate');
+    }
+
     const alert = this.alertRepository.create({
       sender_user_id: userId,
       message,
       alert_type,
       urgency_level,
-      recipients,
+      recipients: finalRecipients,
       timestamp: new Date(),
     });
 

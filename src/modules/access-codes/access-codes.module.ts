@@ -5,9 +5,10 @@ import { AccessCodesController } from './access-codes.controller';
 import { AccessCodesService } from './access-codes.service';
 import { AccessCode } from '../../entities/access-code.entity';
 import { User } from '../../entities/user.entity';
+import { UserProfile } from '../../entities/user-profile.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AccessCode, User])],
+  imports: [TypeOrmModule.forFeature([AccessCode, User, UserProfile])],
   controllers: [AccessCodesController],
   providers: [AccessCodesService],
   exports: [AccessCodesService],

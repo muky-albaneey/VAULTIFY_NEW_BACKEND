@@ -19,6 +19,7 @@ export interface CreateProviderDto {
   bio?: string;
   skill?: string;
   profile_picture_url?: string;
+  photos?: string[]; // Array of image URLs (up to 5)
 }
 
 export interface UpdateProviderDto {
@@ -104,7 +105,7 @@ export class ServiceDirectoryService {
   }
 
   async createProvider(userId: string, createData: CreateProviderDto) {
-    const { service_id, estate_id, first_name, last_name, phone, location, availability, bio, skill, profile_picture_url } = createData;
+    const { service_id, estate_id, first_name, last_name, phone, location, availability, bio, skill, profile_picture_url, photos } = createData;
 
     // Verify service exists
     const service = await this.serviceRepository.findOne({ where: { service_id } });
@@ -116,6 +117,11 @@ export class ServiceDirectoryService {
     const estate = await this.estateRepository.findOne({ where: { estate_id } });
     if (!estate) {
       throw new NotFoundException('Estate not found');
+    }
+
+    // Validate photos (max 5)
+    if (photos && photos.length > 5) {
+      throw new BadRequestException('Maximum 5 photos allowed per provider');
     }
 
     const provider = this.providerRepository.create({
@@ -132,7 +138,24 @@ export class ServiceDirectoryService {
       profile_picture_url,
     });
 
-    return await this.providerRepository.save(provider);
+    const savedProvider = await this.providerRepository.save(provider);
+
+    // Add photos if provided
+    if (photos && photos.length > 0) {
+      for (const imageUrl of photos) {
+        const photo = this.providerPhotoRepository.create({
+          provider_id: savedProvider.provider_id,
+          image_url: imageUrl,
+        });
+        await this.providerPhotoRepository.save(photo);
+      }
+    }
+
+    // Return provider with photos
+    return await this.providerRepository.findOne({
+      where: { provider_id: savedProvider.provider_id },
+      relations: ['service', 'photos', 'reviews'],
+    });
   }
 
   async updateProvider(userId: string, providerId: string, updateData: UpdateProviderDto) {
@@ -162,9 +185,18 @@ export class ServiceDirectoryService {
   }
 
   async addProviderPhoto(providerId: string, imageUrl: string) {
-    const provider = await this.providerRepository.findOne({ where: { provider_id: providerId } });
+    const provider = await this.providerRepository.findOne({ 
+      where: { provider_id: providerId },
+      relations: ['photos'],
+    });
     if (!provider) {
       throw new NotFoundException('Provider not found');
+    }
+
+    // Check if provider already has 5 photos
+    const existingPhotosCount = provider.photos?.length || 0;
+    if (existingPhotosCount >= 5) {
+      throw new BadRequestException('Maximum 5 photos allowed per provider. Please delete an existing photo first.');
     }
 
     const photo = this.providerPhotoRepository.create({
@@ -173,6 +205,19 @@ export class ServiceDirectoryService {
     });
 
     return await this.providerPhotoRepository.save(photo);
+  }
+
+  async deleteProviderPhoto(providerId: string, photoId: string) {
+    const photo = await this.providerPhotoRepository.findOne({
+      where: { provider_photo_id: photoId, provider_id: providerId },
+    });
+
+    if (!photo) {
+      throw new NotFoundException('Photo not found or does not belong to this provider');
+    }
+
+    await this.providerPhotoRepository.remove(photo);
+    return { message: 'Photo deleted successfully' };
   }
 
   async createReview(providerId: string, reviewData: CreateReviewDto) {

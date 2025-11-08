@@ -121,20 +121,29 @@ export class UsersService {
   async getUserById(userId: string) {
     const user = await this.userRepository.findOne({
       where: { user_id: userId },
-      relations: ['profile'],
+      relations: ['profile', 'bankServiceCharges', 'bankServiceCharges.files'],
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    // Transform to include single service charge (since each user has only one)
+    const { bankServiceCharges, ...userWithoutBSC } = user;
+    const transformedUser = {
+      ...userWithoutBSC,
+      service_charge: bankServiceCharges?.[0] || null,
+    };
+
+    return transformedUser;
   }
 
   async searchUsers(query: string, estateId?: string) {
     const qb = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.bankServiceCharges', 'bankServiceCharge')
+      .leftJoinAndSelect('bankServiceCharge.files', 'files')
       .where('user.status = :status', { status: UserStatus.ACTIVE })
       .andWhere(
         '(user.first_name ILIKE :query OR user.last_name ILIKE :query OR user.email ILIKE :query)',
@@ -142,10 +151,19 @@ export class UsersService {
       );
 
     if (estateId) {
-      // Add estate filtering logic here if needed
+      qb.andWhere('profile.estate_id = :estateId', { estateId });
     }
 
-    return await qb.limit(20).getMany();
+    const users = await qb.limit(20).getMany();
+
+    // Transform users to include single service charge (since each user has only one)
+    return users.map(user => {
+      const { bankServiceCharges, ...userWithoutBSC } = user;
+      return {
+        ...userWithoutBSC,
+        service_charge: bankServiceCharges?.[0] || null,
+      };
+    });
   }
 
   async getUsersByEstate(estateId: string, page: number = 1, limit: number = 20) {
@@ -154,13 +172,24 @@ export class UsersService {
     const [users, total] = await this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.bankServiceCharges', 'bankServiceCharge')
+      .leftJoinAndSelect('bankServiceCharge.files', 'files')
       .where('profile.estate_id = :estateId', { estateId })
       .skip(offset)
       .take(limit)
       .getManyAndCount();
 
+    // Transform users to include single service charge (since each user has only one)
+    const transformedUsers = users.map(user => {
+      const { bankServiceCharges, ...userWithoutBSC } = user;
+      return {
+        ...userWithoutBSC,
+        service_charge: bankServiceCharges?.[0] || null,
+      };
+    });
+
     return {
-      data: users,
+      data: transformedUsers,
       total,
       page,
       limit,

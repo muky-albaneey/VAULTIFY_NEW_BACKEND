@@ -10,8 +10,10 @@ import { FamilyMember } from '../../entities/family-member.entity';
 import { Payment } from '../../entities/payment.entity';
 import { WalletTransaction } from '../../entities/wallet-transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
+import { UserProfile } from '../../entities/user-profile.entity';
 import { WalletsModule } from '../wallets/wallets.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { SubscriptionExpirationCron } from './subscription-expiration.cron';
 
 @Module({
   imports: [
@@ -23,12 +25,13 @@ import { PaymentsModule } from '../payments/payments.module';
       Payment,
       WalletTransaction,
       Wallet,
+      UserProfile,
     ]),
     WalletsModule,
     PaymentsModule,
   ],
   controllers: [SubscriptionsController],
-  providers: [SubscriptionsService],
+  providers: [SubscriptionsService, SubscriptionExpirationCron],
   exports: [SubscriptionsService],
 })
 export class SubscriptionsModule {}

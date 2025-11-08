@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from '../../entities/user.entity';
-import { UserProfile } from '../../entities/user-profile.entity';
+import { UserProfile, UserRole } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
 import { JwtPayload, RefreshTokenPayload } from '../../common/interfaces/common.interface';
 import { EmailService } from '../../common/services/email.service';
@@ -90,7 +90,7 @@ export class AuthService {
     const userProfile = this.userProfileRepository.create({
       user_id: savedUser.user_id,
       estate_id: estate_id,
-      role: 'Residence', // Default role, can be changed by admin later
+      role: UserRole.RESIDENCE as UserRole, // Default role, can be changed by admin later
     });
     await this.userProfileRepository.save(userProfile);
 

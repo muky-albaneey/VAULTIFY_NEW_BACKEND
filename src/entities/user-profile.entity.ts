@@ -66,6 +66,9 @@ export class UserProfile {
   @Column({ nullable: true })
   subscription_expiry_date: Date;
 
+  @Column({ default: false })
+  isSubscribe: boolean;
+
   @Column({ nullable: true })
   profile_picture_url: string;
 

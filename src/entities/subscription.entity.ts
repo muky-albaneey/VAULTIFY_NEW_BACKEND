@@ -46,8 +46,17 @@ export class Subscription {
   @Column()
   end_date: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  expired_date: Date;
+
   @Column({ nullable: true })
   last_renewal_payment_id: string;
+
+  @Column({ nullable: true })
+  granted_by_admin: string;
+
+  @Column({ default: false })
+  is_free_subscription: boolean;
 
   @CreateDateColumn()
   created_at: Date;

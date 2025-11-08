@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from '@/modules/users/users.service';
 import { AuthService } from '@/modules/auth/auth.service';
+import { EstatesService } from '@/modules/estates/estates.service';
 import { AppModule } from '@/app.module';
 // import { AppModule } from '../app.module';
 // import { AuthService } from '../modules/auth/auth.service';
@@ -12,6 +13,8 @@ describe('Vaultify Backend (e2e)', () => {
   let app: INestApplication;
   let authService: AuthService;
   let usersService: UsersService;
+  let estatesService: EstatesService;
+  let testEstateId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -34,8 +37,17 @@ describe('Vaultify Backend (e2e)', () => {
     app = moduleFixture.createNestApplication();
     authService = moduleFixture.get<AuthService>(AuthService);
     usersService = moduleFixture.get<UsersService>(UsersService);
+    estatesService = moduleFixture.get<EstatesService>(EstatesService);
 
     await app.init();
+
+    // Create a test estate for all tests
+    const testEstate = await estatesService.createEstate({
+      name: 'Test Estate',
+      email: 'test@estate.com',
+      address: '123 Test Street',
+    });
+    testEstateId = testEstate.estate_id;
   });
 
   afterAll(async () => {
@@ -49,6 +61,7 @@ describe('Vaultify Backend (e2e)', () => {
         password: 'password123',
         first_name: 'Test',
         last_name: 'User',
+        estate_id: testEstateId,
       };
 
       const result = await authService.register(registerData);
@@ -74,6 +87,7 @@ describe('Vaultify Backend (e2e)', () => {
         password: 'password123',
         first_name: 'Active',
         last_name: 'Test',
+        estate_id: testEstateId,
       };
 
       const registerResult = await authService.register(registerData);
@@ -119,6 +133,7 @@ describe('Vaultify Backend (e2e)', () => {
         password: 'password123',
         first_name: 'User',
         last_name: 'Test',
+        estate_id: testEstateId,
       };
 
       const registerResult = await authService.register(registerData);

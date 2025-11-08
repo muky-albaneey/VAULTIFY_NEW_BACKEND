@@ -34,9 +34,7 @@ export class AlertsController {
   constructor(private alertsService: AlertsService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL)
-  @ApiOperation({ summary: 'Create alert (Admin/Security only)' })
+  @ApiOperation({ summary: 'Create alert (All residents can send alerts to their estate)' })
   @ApiResponse({ status: 201, description: 'Alert created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid alert data' })
   async createAlert(
@@ -72,9 +70,7 @@ export class AlertsController {
   }
 
   @Put(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL)
-  @ApiOperation({ summary: 'Update alert (Admin/Security only)' })
+  @ApiOperation({ summary: 'Update alert (Only sender can update their own alert)' })
   @ApiResponse({ status: 200, description: 'Alert updated successfully' })
   @ApiResponse({ status: 404, description: 'Alert not found' })
   async updateAlert(

@@ -19,6 +19,7 @@ export interface CreateAnnouncementDto {
     description?: string;
     utility_account_id?: string;
   };
+  image_urls?: string[]; // Optional array of image URLs
 }
 
 @Injectable()
@@ -36,7 +37,7 @@ export class AnnouncementsService {
   ) {}
 
   async createAnnouncement(userId: string, createData: CreateAnnouncementDto) {
-    const { title, message, announcement_type, recipient_type, target_user_ids, payment_details } = createData;
+    const { title, message, announcement_type, recipient_type, target_user_ids, payment_details, image_urls } = createData;
 
     // Get sender's profile to verify admin role and get estate
     const senderProfile = await this.userProfileRepository.findOne({
@@ -97,6 +98,7 @@ export class AnnouncementsService {
       recipient_type,
       target_user_ids,
       payment_details,
+      image_urls: image_urls || null,
     });
 
     const savedAnnouncement = await this.announcementRepository.save(announcement);
@@ -128,39 +130,48 @@ export class AnnouncementsService {
       })
       .andWhere('announcement.is_active = true');
 
-    // Filter based on recipient type
-    query = query.andWhere(
-      '(announcement.recipient_type = :allResidents OR announcement.recipient_type = :security OR announcement.recipient_type = :user OR announcement.recipient_type = :specific)',
-      {
-        allResidents: RecipientType.ALL_RESIDENTS,
-        security: userProfile.role === UserRole.SECURITY_PERSONNEL ? RecipientType.SECURITY_PERSONNEL : null,
-        user: userId,
-        specific: userId,
-      }
-    );
+    // Build conditions based on recipient type
+    const conditions: string[] = [];
+    const params: any = { estateId: userProfile.estate_id };
 
-    // For specific residents announcements, check if user is in target list
-    if (userProfile.role === UserRole.RESIDENCE) {
-      query = query.orWhere(
-        '(announcement.recipient_type = :specificType AND announcement.target_user_ids::jsonb @> :userId)',
-        {
-          specificType: RecipientType.SPECIFIC_RESIDENTS,
-          userId: JSON.stringify(userId),
-        }
-      );
+    // Condition 1: All residents always see ALL_RESIDENTS announcements
+    conditions.push('announcement.recipient_type = :allResidents');
+    params.allResidents = RecipientType.ALL_RESIDENTS;
+
+    // Condition 2: Security personnel see SECURITY_PERSONNEL announcements
+    if (userProfile.role === UserRole.SECURITY_PERSONNEL) {
+      conditions.push('announcement.recipient_type = :securityType');
+      params.securityType = RecipientType.SECURITY_PERSONNEL;
     }
 
-    const announcements = await query
+    // Condition 3: User sees SINGLE_USER announcements if they are the target
+    conditions.push(
+      `(announcement.recipient_type = :singleUserType AND announcement.target_user_ids::jsonb @> :userId)`
+    );
+    params.singleUserType = RecipientType.SINGLE_USER;
+    params.userId = JSON.stringify(userId);
+
+    // Condition 4: User sees SPECIFIC_RESIDENTS announcements if they are in target list
+    conditions.push(
+      `(announcement.recipient_type = :specificType AND announcement.target_user_ids::jsonb @> :userId)`
+    );
+    params.specificType = RecipientType.SPECIFIC_RESIDENTS;
+
+    // Apply all conditions with OR
+    query = query.andWhere(`(${conditions.join(' OR ')})`, params);
+
+    const [announcements, total] = await query
       .orderBy('announcement.created_at', 'DESC')
       .skip(offset)
       .take(limit)
-      .getMany();
+      .getManyAndCount();
 
     return {
       data: announcements,
       page,
       limit,
-      total: await query.getCount(),
+      total,
+      totalPages: Math.ceil(total / limit),
     };
   }
 

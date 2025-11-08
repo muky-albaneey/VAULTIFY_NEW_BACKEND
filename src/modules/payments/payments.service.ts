@@ -5,6 +5,8 @@ import { Payment, PaymentStatus } from '../../entities/payment.entity';
 import { PaymentProvider } from '../../entities/payment-provider.entity';
 import { WalletTransaction, TransactionDirection, TransactionPurpose, TransactionStatus } from '../../entities/wallet-transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
+import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
+import { UserProfile } from '../../entities/user-profile.entity';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -32,6 +34,10 @@ export class PaymentsService {
     private walletTransactionRepository: Repository<WalletTransaction>,
     @InjectRepository(Wallet)
     private walletRepository: Repository<Wallet>,
+    @InjectRepository(Subscription)
+    private subscriptionRepository: Repository<Subscription>,
+    @InjectRepository(UserProfile)
+    private userProfileRepository: Repository<UserProfile>,
     private configService: ConfigService,
   ) {}
 
@@ -98,9 +104,12 @@ export class PaymentsService {
         payment.paid_at = new Date();
         await this.paymentRepository.save(payment);
 
-        // If this is a wallet top-up, credit the wallet
+        // Handle different payment purposes
         if (payment.raw_payload?.purpose === 'wallet_topup') {
           await this.creditWalletFromPayment(payment);
+        } else if (payment.raw_payload?.purpose === 'service_charge_payment' || payment.raw_payload?.purpose === 'subscription_payment') {
+          // Activate subscription if payment is for subscription
+          await this.activateSubscriptionFromPayment(payment);
         }
       }
     }
@@ -122,9 +131,12 @@ export class PaymentsService {
         payment.raw_payload = data;
         await this.paymentRepository.save(payment);
 
-        // If this is a wallet top-up, credit the wallet
+        // Handle different payment purposes
         if (payment.raw_payload?.purpose === 'wallet_topup') {
           await this.creditWalletFromPayment(payment);
+        } else if (payment.raw_payload?.purpose === 'service_charge_payment' || payment.raw_payload?.purpose === 'subscription_payment') {
+          // Activate subscription if payment is for subscription
+          await this.activateSubscriptionFromPayment(payment);
         }
       }
     }
@@ -194,5 +206,51 @@ export class PaymentsService {
 
       await this.walletTransactionRepository.save(transaction);
     }
+  }
+
+  /**
+   * Activate subscription when payment is confirmed
+   */
+  private async activateSubscriptionFromPayment(payment: Payment) {
+    // Find pending subscription linked to this payment
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { last_renewal_payment_id: payment.payment_id, status: SubscriptionStatus.PENDING },
+      relations: ['plan'],
+    });
+
+    if (subscription && payment.status === PaymentStatus.SUCCESS) {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      const updatedSubscription = await this.subscriptionRepository.save(subscription);
+
+      // Sync user profile subscription status
+      await this.syncUserProfileSubscription(payment.user_id, updatedSubscription);
+    }
+  }
+
+  /**
+   * Sync user profile subscription status with actual subscription
+   */
+  private async syncUserProfileSubscription(userId: string, subscription: Subscription) {
+    const profile = await this.userProfileRepository.findOne({ where: { user_id: userId } });
+    if (!profile) {
+      return;
+    }
+
+    // Check if subscription is actually active (status is ACTIVE and not expired)
+    const now = new Date();
+    const isActive = subscription.status === SubscriptionStatus.ACTIVE && 
+                     new Date(subscription.end_date) > now;
+
+    // Update profile fields
+    profile.isSubscribe = isActive;
+    profile.subscription_start_date = subscription.start_date;
+    profile.subscription_expiry_date = subscription.end_date;
+
+    // If subscription expired, ensure isSubscribe is false
+    if (!isActive) {
+      profile.isSubscribe = false;
+    }
+
+    await this.userProfileRepository.save(profile);
   }
 }

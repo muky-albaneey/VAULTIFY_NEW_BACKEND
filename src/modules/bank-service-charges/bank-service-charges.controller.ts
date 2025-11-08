@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { BankServiceChargeService, CreateBankServiceChargeDto, UpdateBankServiceChargeDto, PayServiceChargeDto, UploadServiceChargeFileDto } from './bank-service-charges.service';
+import { BankServiceChargeService, CreateBankServiceChargeDto, UpdateBankServiceChargeDto, UploadServiceChargeFileDto, AdminUpdateServiceChargeDto } from './bank-service-charges.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/custom.decorators';
@@ -27,13 +27,19 @@ const UpdateBankServiceChargeSchema = z.object({
   account_number: z.string().min(1).optional(),
 });
 
-const PayServiceChargeSchema = z.object({
-  payment_method: z.enum(['wallet', 'external']),
-  amount: z.number().positive().optional(),
-});
-
 const UploadServiceChargeFileSchema = z.object({
   file_url: z.string().url(),
+});
+
+const AdminUpdateServiceChargeSchema = z.object({
+  service_charge: z.number().positive().optional(),
+  paid_charge: z.number().min(0).optional(),
+  payment_frequency: z.enum(['monthly', 'quarterly', 'yearly']).optional(),
+  bank_name: z.string().min(1).optional(),
+  account_name: z.string().min(1).optional(),
+  account_number: z.string().min(1).optional(),
+  is_validated: z.boolean().optional(),
+  validation_notes: z.string().optional(),
 });
 
 @ApiTags('Bank Service Charges')
@@ -64,27 +70,21 @@ export class BankServiceChargeController {
   }
 
   @Put('me')
-  @ApiOperation({ summary: 'Update bank service charge record' })
+  @ApiOperation({ summary: 'Update bank service charge record (bank details only)' })
   @ApiResponse({ status: 200, description: 'Bank service charge updated successfully' })
   @ApiResponse({ status: 404, description: 'Bank service charge record not found' })
+  @ApiResponse({ status: 400, description: 'Cannot update payment amounts. Only admin can update those.' })
   async updateBankServiceCharge(
     @CurrentUserId() userId: string,
     @Body() updateData: UpdateBankServiceChargeDto,
   ) {
+    // Users can only update bank details, not payment amounts
+    if (updateData.service_charge !== undefined || updateData.paid_charge !== undefined || updateData.outstanding_charge !== undefined) {
+      throw new BadRequestException('Users cannot update payment amounts. Only admins can update those.');
+    }
+
     const validatedData = UpdateBankServiceChargeSchema.parse(updateData) as UpdateBankServiceChargeDto;
     return this.bankServiceChargeService.updateBankServiceCharge(userId, validatedData);
-  }
-
-  @Post('me/pay')
-  @ApiOperation({ summary: 'Pay bank service charge' })
-  @ApiResponse({ status: 201, description: 'Payment processed successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid payment data' })
-  async payServiceCharge(
-    @CurrentUserId() userId: string,
-    @Body() paymentData: PayServiceChargeDto,
-  ) {
-    const validatedData = PayServiceChargeSchema.parse(paymentData) as PayServiceChargeDto;
-    return this.bankServiceChargeService.payServiceCharge(userId, validatedData);
   }
 
   @Post('me/files')
@@ -126,8 +126,8 @@ export class BankServiceChargeController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get all bank service charges (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get all bank service charges (Estate Admin/Super Admin only)' })
   @ApiQuery({ name: 'page', description: 'Page number', required: false })
   @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
   @ApiResponse({ status: 200, description: 'Bank service charges retrieved successfully' })
@@ -141,7 +141,7 @@ export class BankServiceChargeController {
   @Get('estate/:estateId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get bank service charges by estate (Admin/Security/Super Admin only)' })
+  @ApiOperation({ summary: 'Get bank service charges by estate (Estate Admin/Security/Super Admin only)' })
   @ApiQuery({ name: 'page', description: 'Page number', required: false })
   @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
   @ApiResponse({ status: 200, description: 'Bank service charges retrieved successfully' })
@@ -156,7 +156,7 @@ export class BankServiceChargeController {
   @Put(':bscId/validate')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Validate service charge (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Validate service charge payment (Estate Admin/Super Admin only)' })
   @ApiResponse({ status: 200, description: 'Service charge validated successfully' })
   @ApiResponse({ status: 404, description: 'Service charge not found' })
   async validateServiceCharge(
@@ -173,5 +173,20 @@ export class BankServiceChargeController {
       body.is_validated,
       body.notes,
     );
+  }
+
+  @Put(':bscId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update service charge (Estate Admin/Super Admin only) - Auto-calculates outstanding balance' })
+  @ApiResponse({ status: 200, description: 'Service charge updated successfully' })
+  @ApiResponse({ status: 404, description: 'Service charge not found' })
+  async adminUpdateServiceCharge(
+    @CurrentUserId() adminUserId: string,
+    @Param('bscId') bscId: string,
+    @Body() updateData: AdminUpdateServiceChargeDto,
+  ) {
+    const validatedData = AdminUpdateServiceChargeSchema.parse(updateData) as AdminUpdateServiceChargeDto;
+    return this.bankServiceChargeService.adminUpdateServiceCharge(bscId, adminUserId, validatedData);
   }
 }

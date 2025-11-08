@@ -11,6 +11,7 @@ This comprehensive guide explains how users perform all operations in the Vaulti
 3. [Users Sign Up Based on Estate](#3-users-sign-up-based-on-their-estate)
 4. [Access Code Generation and Verification](#4-access-code-generation-and-verification)
 5. [Send Alert](#5-send-alert)
+5A. [Send Announcement (Admin Only)](#5a-send-announcement-admin-only)
 6. [Lost and Found](#6-lost-and-found)
 7. [Estate Service Charge](#7-estate-service-charge)
 8. [Home Service Booking/Service Providers (Artisans)](#8-home-service-booking-service-providers-artisans)
@@ -324,9 +325,14 @@ Content-Type: application/json
   "gate": "Main Gate",
   "is_active": true,
   "notify_on_use": true,
-  "created_at": "2024-01-15T09:00:00Z"
+  "created_at": "2024-01-15T09:00:00Z",
+  "creator_house_address": "Block A, Flat 101"
 }
 ```
+
+**Note:** 
+- `creator_house_address` is automatically included from the resident's profile
+- If the resident hasn't set their house address, it will be `null`
 
 #### Step 2: View Your Access Codes
 ```bash
@@ -344,10 +350,15 @@ Authorization: Bearer {resident_token}
     "valid_to": "2024-01-15T18:00:00Z",
     "max_uses": 5,
     "current_uses": 0,
-    "is_active": true
+    "is_active": true,
+    "creator_house_address": "Block A, Flat 101"
   }
 ]
 ```
+
+**Note:** 
+- `creator_house_address` is included for each access code
+- Shows the resident's house address from their profile
 
 #### Step 3: Deactivate Access Code (If Needed)
 ```bash
@@ -371,11 +382,17 @@ Authorization: Bearer {security_token}
   "visitor_email": "jane@example.com",
   "visitor_phone": "+2348012345678",
   "creator_name": "John Doe",
+  "creator_house_address": "Block A, Flat 101",
   "valid_from": "2024-01-15T10:00:00Z",
   "valid_to": "2024-01-15T18:00:00Z",
   "remaining_uses": 4
 }
 ```
+
+**Note:** 
+- `creator_house_address` shows where the visitor should go (resident's house address)
+- Helps security personnel direct visitors to the correct location
+- If resident hasn't set their house address, it will be `null`
 
 **Response (If Invalid/Expired):**
 ```json
@@ -412,60 +429,70 @@ Authorization: Bearer {security_token}
 **Alerts sent from Estate A must not deliver to Estate B. Only residents in Estate A should get the alerts.**
 
 ### Who Can Send Alerts?
-- **Estate Admins** (`Admin` role)
-- **Security Personnel** (`Security Personnel` role)
+- **All Authenticated Users** (Residents, Admins, Security Personnel) - Can send alerts to other residents in their estate
+
+### Purpose:
+Alerts are for **residents** to quickly notify other residents in their estate about:
+- Road blocks or traffic issues
+- Maintenance work happening
+- Emergency situations
+- Utility interruptions
+- General warnings or information
 
 ### Step-by-Step Process:
 
 #### Step 1: Create Alert (Estate-Scoped)
+When a resident sends an alert with `recipients.type: "estate"`, the system automatically uses their estate_id:
+
 ```bash
 POST /alerts
-Authorization: Bearer {admin_or_security_token}
+Authorization: Bearer {resident_token}
 Content-Type: application/json
 
 {
-  "message": "Water supply will be interrupted tomorrow from 9 AM to 3 PM for maintenance work.",
-  "alert_type": "utility",
-  "urgency_level": "medium",
+  "message": "Road block on Main Street due to maintenance work. Please use alternative route.",
+  "alert_type": "maintenance",
+  "urgency_level": "high",
   "recipients": {
-    "type": "estate",
-    "estate_id": "estate-uuid-paradise"
+    "type": "estate"
   }
 }
 ```
+
+**Note:** When `recipients.type` is `"estate"` and no `estate_id` is provided, the system automatically uses the sender's estate. Residents cannot send alerts to other estates.
 
 **Response:**
 ```json
 {
   "alert_id": "alert-uuid",
-  "sender_user_id": "admin-uuid",
-  "message": "Water supply will be interrupted tomorrow from 9 AM to 3 PM for maintenance work.",
-  "alert_type": "utility",
-  "urgency_level": "medium",
+  "sender_user_id": "resident-uuid",
+  "message": "Road block on Main Street due to maintenance work. Please use alternative route.",
+  "alert_type": "maintenance",
+  "urgency_level": "high",
   "recipients": {
     "type": "estate",
     "estate_id": "estate-uuid-paradise"
   },
-  "created_at": "2024-01-15T10:00:00Z"
+  "timestamp": "2024-01-15T10:00:00Z"
 }
 ```
 
 ### Recipient Types:
 
-#### Option 1: Send to All Estate Residents
+#### Option 1: Send to All Estate Residents (Simplified)
 ```json
 {
-  "message": "Estate meeting scheduled for Saturday at 2 PM",
-  "alert_type": "general",
-  "urgency_level": "low",
+  "message": "Water supply will be interrupted tomorrow from 9 AM to 3 PM for maintenance work.",
+  "alert_type": "utility",
+  "urgency_level": "medium",
   "recipients": {
-    "type": "estate",
-    "estate_id": "estate-uuid-paradise"
+    "type": "estate"
   }
 }
 ```
+**Note:** Estate ID is automatically set to sender's estate.
 
-#### Option 2: Send to Specific Users
+#### Option 2: Send to Specific Users in Estate
 ```json
 {
   "message": "Your package has arrived at the reception",
@@ -478,24 +505,12 @@ Content-Type: application/json
 }
 ```
 
-#### Option 3: Send to All Users (System-Wide)
-```json
-{
-  "message": "System maintenance scheduled tonight",
-  "alert_type": "general",
-  "urgency_level": "low",
-  "recipients": {
-    "type": "all"
-  }
-}
-```
-
 ### Alert Types:
-- `general` - General announcements
-- `emergency` - Emergency alerts
-- `maintenance` - Maintenance notices
+- `general` - General alerts/information
+- `emergency` - Emergency situations
+- `maintenance` - Maintenance work notices
 - `security` - Security alerts
-- `utility` - Utility-related alerts
+- `utility` - Utility interruptions or issues
 
 ### Urgency Levels:
 - `low` - Low priority
@@ -505,15 +520,16 @@ Content-Type: application/json
 
 ### What Happens:
 1. ✅ Alert is created in database
-2. ✅ System identifies recipients based on `recipients.type`
-3. ✅ For estate-scoped alerts: Only users in the specified estate receive the alert
+2. ✅ System automatically uses sender's estate_id for estate-scoped alerts
+3. ✅ Only users in the same estate receive the alert
 4. ✅ Push notifications are sent to all active users in the estate
 5. ✅ Users receive alerts in their app
 
 ### Estate Scope Implementation:
-- ✅ When `recipients.type` is `"estate"`, system filters users by `estate_id`
+- ✅ When `recipients.type` is `"estate"`, system automatically uses sender's `estate_id`
+- ✅ Residents cannot send alerts to other estates (blocked by system)
 - ✅ Only users with matching `estate_id` in their profile receive alerts
-- ✅ Alerts are automatically scoped to the estate
+- ✅ Alerts are automatically scoped to the sender's estate
 - ✅ Cross-estate alert delivery is prevented
 
 ### Viewing Alerts:
@@ -530,16 +546,48 @@ Authorization: Bearer {user_token}
   "data": [
     {
       "alert_id": "alert-uuid",
-      "message": "Water supply will be interrupted tomorrow...",
-      "alert_type": "utility",
-      "urgency_level": "medium",
-      "created_at": "2024-01-15T10:00:00Z"
+      "message": "Road block on Main Street due to maintenance work...",
+      "alert_type": "maintenance",
+      "urgency_level": "high",
+      "sender": {
+        "first_name": "John",
+        "last_name": "Doe"
+      },
+      "timestamp": "2024-01-15T10:00:00Z"
     }
   ],
   "total": 5,
   "page": 1,
-  "limit": 20,
-  "totalPages": 1
+  "limit": 20
+}
+```
+
+#### Get Specific Alert
+```bash
+GET /alerts/{alertId}
+Authorization: Bearer {resident_token}
+```
+
+#### Delete Alert (Remove from Your View)
+```bash
+DELETE /alerts/{alertId}
+Authorization: Bearer {resident_token}
+Content-Type: application/json
+
+{
+  "reason": "Already resolved"
+}
+```
+
+#### Update Your Alert (Only sender can update)
+```bash
+PUT /alerts/{alertId}
+Authorization: Bearer {resident_token}
+Content-Type: application/json
+
+{
+  "message": "Updated: Road block cleared. Traffic is flowing normally now.",
+  "urgency_level": "low"
 }
 ```
 
@@ -550,11 +598,325 @@ Authorization: Bearer {admin_token}
 ```
 
 ### Important Notes:
-- ✅ Alerts are estate-scoped automatically
-- ✅ Only residents in the specified estate receive alerts
+- ✅ Alerts are for **all authenticated users** (residents, admins, security) to notify other residents
+- ✅ Alerts are automatically estate-scoped (sender's estate)
+- ✅ Only residents in the same estate receive alerts
 - ✅ Push notifications are sent automatically
 - ✅ Users can delete alerts from their view
+- ✅ Only the sender can update their own alerts
 - ✅ Alerts are filtered by estate_id in the database
+- ✅ Example use cases: Road blocks, maintenance warnings, utility interruptions
+
+## 5A. Send Announcement (Admin Only)
+
+### Who Can Send Announcements?
+- **Estate Admins** (`Admin` role) only
+
+### Purpose:
+Announcements are **official communications** from estate admins to residents about:
+- Official estate notices
+- Payment reminders
+- Scheduled events
+- Policy changes
+- Important estate updates
+
+### Estate Scope:
+- ✅ Announcements are automatically scoped to admin's estate (`estate_id`)
+- ✅ Admin can only send announcements to residents in their own estate
+- ✅ System automatically uses admin's estate_id when creating announcements
+- ✅ Cross-estate announcements are prevented
+
+### Step-by-Step Process:
+
+#### Step 1: Send to All Estate Residents (With Images)
+```bash
+POST /announcements
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "title": "Estate Meeting Scheduled",
+  "message": "There will be an estate meeting on Saturday, January 20th at 2 PM in the community hall. All residents are encouraged to attend.",
+  "announcement_type": "event",
+  "recipient_type": "all_residents",
+  "image_urls": [
+    "https://storage.example.com/announcements/meeting-poster.jpg",
+    "https://storage.example.com/announcements/venue-map.png"
+  ]
+}
+```
+
+**Note:** 
+- `image_urls` is **optional** - you can omit it if no images are needed
+- Can include multiple image URLs (array of strings)
+- Images should be uploaded to your storage service (S3, etc.) first, then URLs provided here
+
+**Response:**
+```json
+{
+  "announcement_id": "announcement-uuid",
+  "sender_user_id": "admin-uuid",
+  "estate_id": "estate-uuid-paradise",
+  "title": "Estate Meeting Scheduled",
+  "message": "There will be an estate meeting on Saturday, January 20th at 2 PM in the community hall. All residents are encouraged to attend.",
+  "announcement_type": "event",
+  "recipient_type": "all_residents",
+  "image_urls": [
+    "https://storage.example.com/announcements/meeting-poster.jpg",
+    "https://storage.example.com/announcements/venue-map.png"
+  ],
+  "created_at": "2024-01-15T10:00:00Z"
+}
+```
+
+#### Step 2: Send to Single Resident (With Image)
+```bash
+POST /announcements
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "title": "Payment Reminder",
+  "message": "Your service charge payment is overdue. Please make payment as soon as possible.",
+  "announcement_type": "payment_reminder",
+  "recipient_type": "single_user",
+  "target_user_ids": ["user-uuid"],
+  "image_urls": [
+    "https://storage.example.com/announcements/payment-instructions.jpg"
+  ]
+}
+```
+
+**Note:** 
+- The system automatically validates that the target user belongs to the admin's estate. If not, an error is returned.
+- `image_urls` is optional - can be omitted if no images needed
+
+**Response:**
+```json
+{
+  "announcement_id": "announcement-uuid",
+  "sender_user_id": "admin-uuid",
+  "estate_id": "estate-uuid-paradise",
+  "title": "Payment Reminder",
+  "message": "Your service charge payment is overdue. Please make payment as soon as possible.",
+  "announcement_type": "payment_reminder",
+  "recipient_type": "single_user",
+  "target_user_ids": ["user-uuid"],
+  "image_urls": [
+    "https://storage.example.com/announcements/payment-instructions.jpg"
+  ],
+  "created_at": "2024-01-15T10:00:00Z"
+}
+```
+
+#### Step 3: Send to Specific Residents (Multiple) - Without Images
+```bash
+POST /announcements
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "title": "Block A Meeting",
+  "message": "Meeting for Block A residents scheduled for Friday.",
+  "announcement_type": "event",
+  "recipient_type": "specific_residents",
+  "target_user_ids": ["user-uuid-1", "user-uuid-2", "user-uuid-3"]
+}
+```
+
+**Note:** 
+- All target users must belong to the admin's estate. The system validates each user.
+- `image_urls` is optional - this example shows announcement without images
+
+#### Step 4: Send Payment Reminder (Quick Method)
+```bash
+POST /announcements/payment-reminder
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "target_user_id": "user-uuid",
+  "amount": 50000,
+  "due_date": "2024-01-30",
+  "description": "Monthly service charge payment",
+  "utility_account_id": "account-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "announcement_id": "announcement-uuid",
+  "title": "Payment Reminder - Monthly service charge payment",
+  "message": "This is a reminder that you have a payment of ₦50,000 due by 2024-01-30. Monthly service charge payment",
+  "announcement_type": "payment_reminder",
+  "recipient_type": "single_user",
+  "target_user_ids": ["user-uuid"],
+  "payment_details": {
+    "amount": 50000,
+    "due_date": "2024-01-30",
+    "description": "Monthly service charge payment",
+    "utility_account_id": "account-uuid"
+  }
+}
+```
+
+### Recipient Types:
+
+#### Option 1: All Estate Residents
+```json
+{
+  "recipient_type": "all_residents"
+}
+```
+- All active residents in the estate receive the announcement
+- No `target_user_ids` required
+
+#### Option 2: Security Personnel Only
+```json
+{
+  "recipient_type": "security_personnel"
+}
+```
+- Only security personnel in the estate receive the announcement
+- No `target_user_ids` required
+
+#### Option 3: Single User
+```json
+{
+  "recipient_type": "single_user",
+  "target_user_ids": ["user-uuid"]
+}
+```
+- Only the specified user receives the announcement
+- Must provide `target_user_ids` with exactly one user ID
+- System validates user belongs to admin's estate
+
+#### Option 4: Specific Residents
+```json
+{
+  "recipient_type": "specific_residents",
+  "target_user_ids": ["user-uuid-1", "user-uuid-2"]
+}
+```
+- Only specified users receive the announcement
+- Must provide `target_user_ids` array
+- System validates all users belong to admin's estate
+
+### Announcement Types:
+- `general` - General announcements
+- `payment_reminder` - Payment reminders
+- `maintenance` - Maintenance notices
+- `event` - Event announcements
+- `security` - Security announcements
+- `urgent` - Urgent announcements
+
+### What Happens:
+1. ✅ Admin creates announcement
+2. ✅ System automatically uses admin's `estate_id` (from admin's profile)
+3. ✅ For specific users: System validates all target users belong to admin's estate
+4. ✅ Announcement is created in database with estate scope
+5. ✅ Push notifications are sent to all recipients
+6. ✅ Only recipients in the estate receive the announcement
+
+### Estate Scope Implementation:
+- ✅ Admin's `estate_id` is automatically retrieved from their profile
+- ✅ Announcement is linked to admin's estate (`estate_id`)
+- ✅ Target users are validated to belong to same estate
+- ✅ Cross-estate announcements are prevented
+- ✅ Residents only see announcements from their estate
+
+### Viewing Announcements:
+
+#### Get Your Announcements (Residents)
+```bash
+GET /announcements/me?page=1&limit=20
+Authorization: Bearer {resident_token}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "announcement_id": "announcement-uuid",
+      "title": "Estate Meeting Scheduled",
+      "message": "There will be an estate meeting on Saturday...",
+      "announcement_type": "event",
+      "recipient_type": "all_residents",
+      "sender": {
+        "first_name": "Admin",
+        "last_name": "User"
+      },
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 10,
+  "totalPages": 1
+}
+```
+
+#### Get Specific Announcement
+```bash
+GET /announcements/{announcementId}
+Authorization: Bearer {resident_token}
+```
+
+#### Admin: View Sent Announcements
+```bash
+GET /announcements/sent?page=1&limit=20
+Authorization: Bearer {admin_token}
+```
+
+#### Admin: Update Announcement
+```bash
+PUT /announcements/{announcementId}
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "title": "Updated Title",
+  "message": "Updated: Meeting postponed to next Saturday",
+  "image_urls": [
+    "https://storage.example.com/announcements/updated-image.jpg"
+  ]
+}
+```
+
+**Note:**
+- Can update any field including `image_urls`
+- `image_urls` can be updated to add, remove, or replace images
+- Only the announcement creator (admin) can update
+
+#### Admin: Delete Announcement
+```bash
+DELETE /announcements/{announcementId}
+Authorization: Bearer {admin_token}
+```
+
+### Image Uploads:
+- ✅ **Optional field**: `image_urls` - Array of image URLs
+- ✅ **Multiple images**: Can upload multiple images per announcement
+- ✅ **Upload process**: 
+  1. Upload images to your storage service (S3, Linode Object Storage, etc.)
+  2. Get the image URLs
+  3. Include URLs in `image_urls` array when creating announcement
+- ✅ **Use cases**: Event posters, payment instructions, maintenance photos, policy documents, etc.
+- ✅ **Example**: `"image_urls": ["https://storage.example.com/image1.jpg", "https://storage.example.com/image2.png"]`
+
+### Important Notes:
+- ✅ Announcements are for **admins only**
+- ✅ Announcements are official estate communications
+- ✅ Automatically estate-scoped (admin's estate)
+- ✅ Only residents in the same estate receive announcements
+- ✅ Target users are validated to belong to admin's estate
+- ✅ Cross-estate announcements are prevented
+- ✅ Push notifications are sent automatically
+- ✅ **Image uploads are optional** - announcements work without images
+- ✅ Example use cases: Official notices, payment reminders, events, policy changes
+- ✅ Single resident announcements: Use `recipient_type: "single_user"` with `target_user_ids: ["user-uuid"]`
 
 ---
 
@@ -572,6 +934,7 @@ Authorization: Bearer {resident_token}
 Content-Type: application/json
 
 {
+  "estate_id": "estate-uuid-paradise",
   "description": "Lost black iPhone 13 Pro Max with blue case",
   "item_type": "Lost",
   "location": "Near the swimming pool",
@@ -579,6 +942,8 @@ Content-Type: application/json
   "image_url": "https://storage.example.com/lost-phone.jpg"
 }
 ```
+
+**Note:** The `estate_id` must match the user's estate. The system validates this to ensure users can only report items for their own estate.
 
 **Response:**
 ```json
@@ -602,6 +967,7 @@ Authorization: Bearer {resident_token}
 Content-Type: application/json
 
 {
+  "estate_id": "estate-uuid-paradise",
   "description": "Found a set of keys with a keychain",
   "item_type": "Found",
   "location": "Parking lot",
@@ -674,11 +1040,12 @@ Authorization: Bearer {user_token}
 5. ✅ Cross-estate visibility is prevented
 
 ### Important Notes:
-- ✅ Items are automatically estate-scoped based on reporter's estate
+- ✅ Items require `estate_id` in request body (must match user's estate)
 - ✅ Only residents in the same estate can see items
 - ✅ Items can include images and contact information
 - ✅ Items are sorted by date reported (newest first)
 - ✅ Estate filtering happens automatically in queries
+- ✅ Users can update and delete their own items
 
 ---
 
@@ -746,68 +1113,8 @@ Authorization: Bearer {resident_token}
 }
 ```
 
-#### Step 3: Make Payment via Wallet
-```bash
-POST /bank-service-charges/me/pay
-Authorization: Bearer {resident_token}
-Content-Type: application/json
-
-{
-  "payment_method": "wallet",
-  "amount": 30000
-}
-```
-
-**Response:**
-```json
-{
-  "payment": {
-    "payment_id": "payment-uuid",
-    "amount": 30000,
-    "status": "success",
-    "reference": "BSC_abc123",
-    "paid_at": "2024-01-15T12:00:00Z"
-  },
-  "bank_service_charge": {
-    "service_charge": 50000,
-    "paid_charge": 30000,
-    "outstanding_charge": 20000
-  },
-  "payment_url": null
-}
-```
-
-#### Step 4: Make Payment via External Payment (Paystack)
-```bash
-POST /bank-service-charges/me/pay
-Authorization: Bearer {resident_token}
-Content-Type: application/json
-
-{
-  "payment_method": "external",
-  "amount": 20000
-}
-```
-
-**Response:**
-```json
-{
-  "payment": {
-    "payment_id": "payment-uuid",
-    "amount": 20000,
-    "status": "pending",
-    "reference": "BSC_xyz789"
-  },
-  "bank_service_charge": {
-    "service_charge": 50000,
-    "paid_charge": 30000,
-    "outstanding_charge": 20000
-  },
-  "payment_url": "https://paystack.com/pay/BSC_xyz789"
-}
-```
-
-#### Step 5: Upload Payment Proof (For External Payments)
+#### Step 3: Upload Payment Receipt/Proof
+**Users can only upload receipts/images. Payment amounts are updated by admins only.**
 ```bash
 POST /bank-service-charges/me/files
 Authorization: Bearer {resident_token}
@@ -818,7 +1125,42 @@ Content-Type: application/json
 }
 ```
 
-#### Step 6: Admin Validates Payment
+### Payment Frequencies:
+- `monthly` - Paid every month
+- `quarterly` - Paid every 3 months
+- `yearly` - Paid once per year
+
+### Admin Operations:
+
+#### Step 4: Admin Updates Payment Amount (Auto-calculates Outstanding Balance)
+```bash
+PUT /bank-service-charges/{bscId}
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "paid_charge": 30000,
+  "is_validated": true,
+  "validation_notes": "Payment verified. Bank statement confirms ₦30,000 received on 2024-01-15"
+}
+```
+
+**Response:**
+```json
+{
+  "bsc_id": "bsc-uuid",
+  "service_charge": 50000,
+  "paid_charge": 30000,
+  "outstanding_charge": 20000,
+  "is_validated": true,
+  "validated_at": "2024-01-15T12:00:00Z",
+  "validation_notes": "Payment verified. Bank statement confirms ₦30,000 received on 2024-01-15"
+}
+```
+
+**Note:** Estate Admins and Super Admins can update service charges. When admin updates `paid_charge` or `service_charge`, the `outstanding_charge` is automatically calculated as `service_charge - paid_charge`. If the result is negative, it's set to 0.
+
+#### Step 5: Admin Validates Payment (Optional - Separate from update)
 ```bash
 PUT /bank-service-charges/{bscId}/validate
 Authorization: Bearer {admin_token}
@@ -830,16 +1172,45 @@ Content-Type: application/json
 }
 ```
 
-### Payment Frequencies:
-- `monthly` - Paid every month
-- `quarterly` - Paid every 3 months
-- `yearly` - Paid once per year
+**Note:** Estate Admins and Super Admins can validate payments. This is a separate operation from updating payment amounts.
 
-### Payment Methods:
-- `wallet` - Instant payment from wallet balance
-- `external` - Payment via Paystack (card/bank transfer)
+### Payment Workflow:
+- ✅ Users upload payment receipts/images only
+- ✅ Admin reviews receipts and updates `paid_charge` amount
+- ✅ System automatically calculates `outstanding_charge` when admin updates
+- ✅ Admin can validate payments and add notes
+- ✅ No direct payment processing (wallet/Paystack) through this system
 
 ### Admin Features:
+
+#### Update Service Charge (Auto-calculates Outstanding Balance)
+```bash
+PUT /bank-service-charges/{bscId}
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "service_charge": 50000,
+  "paid_charge": 30000,
+  "is_validated": true,
+  "validation_notes": "Payment verified. Bank statement confirms ₦30,000 received on 2024-01-15"
+}
+```
+
+**Response:**
+```json
+{
+  "bsc_id": "bsc-uuid",
+  "service_charge": 50000,
+  "paid_charge": 30000,
+  "outstanding_charge": 20000,
+  "is_validated": true,
+  "validated_at": "2024-01-15T12:00:00Z",
+  "validation_notes": "Payment verified. Bank statement confirms ₦30,000 received on 2024-01-15"
+}
+```
+
+**Note:** Estate Admins and Super Admins can update service charges. When admin updates `paid_charge` or `service_charge`, the system automatically calculates `outstanding_charge = service_charge - paid_charge`. If the result is negative, it's set to 0.
 
 #### View All Service Charges in Estate
 ```bash
@@ -875,10 +1246,12 @@ Authorization: Bearer {admin_token}
 
 ### Important Notes:
 - ✅ Each user can only have ONE service charge record
-- ✅ Outstanding balance is automatically calculated (`outstanding = total - paid`)
-- ✅ Partial payments are allowed
-- ✅ Admin can validate payments
-- ✅ Estate-scoped: Admins only see their estate's charges
+- ✅ **Users CANNOT pay directly** - they can only upload payment receipts/images
+- ✅ Users can only update bank details (bank_name, account_name, account_number, payment_frequency)
+- ✅ **Estate Admin/Super Admin updates payment amounts** - Admin uses `PUT /bank-service-charges/{bscId}` to update `paid_charge`
+- ✅ **Outstanding balance auto-calculates** - When admin updates `paid_charge` or `service_charge`, system automatically calculates `outstanding_charge = service_charge - paid_charge`
+- ✅ Estate Admin/Super Admin can validate payments and add validation notes
+- ✅ Estate-scoped: Estate Admins only see their estate's charges
 
 ---
 
@@ -907,9 +1280,18 @@ Content-Type: application/json
   "availability": "Mon-Fri, 9 AM - 6 PM",
   "bio": "Experienced plumber with 10 years of experience",
   "skill": "Plumbing, Pipe Repair, Installation",
-  "profile_picture_url": "https://storage.example.com/provider-photo.jpg"
+  "profile_picture_url": "https://storage.example.com/provider-photo.jpg",
+  "photos": [
+    "https://storage.example.com/work-photo-1.jpg",
+    "https://storage.example.com/work-photo-2.jpg",
+    "https://storage.example.com/work-photo-3.jpg"
+  ]
 }
 ```
+
+**Note:** 
+- `profile_picture_url` - Single profile picture for the provider
+- `photos` - Array of up to 5 photo URLs to showcase their work (optional)
 
 **Response:**
 ```json
@@ -926,7 +1308,24 @@ Content-Type: application/json
   "bio": "Experienced plumber with 10 years of experience",
   "skill": "Plumbing, Pipe Repair, Installation",
   "profile_picture_url": "https://storage.example.com/provider-photo.jpg",
-  "created_at": "2024-01-15T10:00:00Z"
+  "created_at": "2024-01-15T10:00:00Z",
+  "photos": [
+    {
+      "provider_photo_id": "photo-uuid-1",
+      "image_url": "https://storage.example.com/work-photo-1.jpg",
+      "uploaded_at": "2024-01-15T10:00:00Z"
+    },
+    {
+      "provider_photo_id": "photo-uuid-2",
+      "image_url": "https://storage.example.com/work-photo-2.jpg",
+      "uploaded_at": "2024-01-15T10:00:00Z"
+    },
+    {
+      "provider_photo_id": "photo-uuid-3",
+      "image_url": "https://storage.example.com/work-photo-3.jpg",
+      "uploaded_at": "2024-01-15T10:00:00Z"
+    }
+  ]
 }
 ```
 
@@ -980,6 +1379,18 @@ Authorization: Bearer {resident_token}
         "service_id": "service-uuid",
         "name": "Plumber"
       },
+      "photos": [
+        {
+          "provider_photo_id": "photo-uuid-1",
+          "image_url": "https://storage.example.com/work-photo-1.jpg",
+          "uploaded_at": "2024-01-15T10:00:00Z"
+        },
+        {
+          "provider_photo_id": "photo-uuid-2",
+          "image_url": "https://storage.example.com/work-photo-2.jpg",
+          "uploaded_at": "2024-01-15T10:00:00Z"
+        }
+      ],
       "reviews": [
         {
           "rating": 5,
@@ -1026,8 +1437,14 @@ Authorization: Bearer {resident_token}
   },
   "photos": [
     {
-      "photo_id": "photo-uuid",
-      "image_url": "https://storage.example.com/work-photo.jpg"
+      "provider_photo_id": "photo-uuid-1",
+      "image_url": "https://storage.example.com/work-photo-1.jpg",
+      "uploaded_at": "2024-01-15T10:00:00Z"
+    },
+    {
+      "provider_photo_id": "photo-uuid-2",
+      "image_url": "https://storage.example.com/work-photo-2.jpg",
+      "uploaded_at": "2024-01-15T10:00:00Z"
     }
   ],
   "reviews": [
@@ -1081,7 +1498,7 @@ DELETE /service-directory/providers/{providerId}
 Authorization: Bearer {admin_token}
 ```
 
-#### Add Provider Photo
+#### Add Provider Photo (After Creation)
 ```bash
 POST /service-directory/providers/{providerId}/photos
 Authorization: Bearer {admin_token}
@@ -1092,12 +1509,30 @@ Content-Type: application/json
 }
 ```
 
+**Note:** Maximum 5 photos per provider. If provider already has 5 photos, you must delete one first.
+
+#### Delete Provider Photo
+```bash
+DELETE /service-directory/providers/{providerId}/photos/{photoId}
+Authorization: Bearer {admin_token}
+```
+
+**Response:**
+```json
+{
+  "message": "Photo deleted successfully"
+}
+```
+
 ### Important Notes:
 - ✅ Providers are registered by estate admins only
 - ✅ Providers are available to residents in the app
 - ✅ Residents can search, browse, and contact providers
 - ✅ Residents can leave reviews after service
 - ✅ Providers can be filtered by estate
+- ✅ **Photos**: Up to 5 photos can be uploaded to showcase work (separate from profile picture)
+- ✅ Photos can be added during provider creation (`photos` array) or added later via API
+- ✅ Maximum 5 photos enforced - must delete existing photo before adding new one if limit reached
 
 ---
 
@@ -1371,6 +1806,9 @@ Authorization: Bearer {user_token}
   "status": "active",
   "start_date": "2024-01-15T10:00:00Z",
   "end_date": "2024-02-15T10:00:00Z",
+  "expired_date": null,
+  "is_free_subscription": false,
+  "granted_by_admin": null,
   "plan": {
     "plan_id": "plan-uuid-1",
     "name": "Normal Monthly Plan",
@@ -1381,7 +1819,42 @@ Authorization: Bearer {user_token}
 }
 ```
 
-#### Step 5: Check if Subscription is Active
+**Note:** 
+- `expired_date` is automatically set when subscription expires
+- `is_free_subscription` indicates if subscription was granted by admin
+- `granted_by_admin` shows which admin granted the subscription (if applicable)
+
+#### Step 5: Check User Profile Subscription Status
+
+The user profile automatically syncs subscription status:
+```bash
+GET /users/me
+Authorization: Bearer {user_token}
+```
+
+**Response:**
+```json
+{
+  "user_id": "user-uuid",
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "profile": {
+    "user_id": "user-uuid",
+    "isSubscribe": true,
+    "subscription_start_date": "2024-01-15T10:00:00Z",
+    "subscription_expiry_date": "2024-02-15T10:00:00Z",
+    ...
+  }
+}
+```
+
+**Note:** 
+- `isSubscribe` is automatically `true` when subscription is active and not expired
+- `isSubscribe` automatically becomes `false` when subscription expires or is canceled
+- Subscription dates sync automatically with profile
+
+#### Step 6: Check if Subscription is Active
 ```bash
 GET /subscriptions/me/active
 Authorization: Bearer {user_token}
@@ -1399,7 +1872,7 @@ Authorization: Bearer {user_token}
 }
 ```
 
-#### Step 6: Renew Subscription
+#### Step 7: Renew Subscription
 ```bash
 PUT /subscriptions/renew
 Authorization: Bearer {user_token}
@@ -1417,7 +1890,9 @@ Content-Type: application/json
     "subscription_id": "sub-uuid",
     "status": "active",
     "start_date": "2024-02-15T10:00:00Z",
-    "end_date": "2024-03-15T10:00:00Z"
+    "end_date": "2024-03-15T10:00:00Z",
+    "expired_date": null,
+    "is_free_subscription": false
   },
   "payment": {
     "payment_id": "payment-uuid",
@@ -1427,7 +1902,11 @@ Content-Type: application/json
 }
 ```
 
-#### Step 7: Cancel Subscription
+**Note:** 
+- `expired_date` is cleared (`null`) when subscription is renewed
+- `isSubscribe` remains `true` after renewal
+
+#### Step 8: Cancel Subscription
 ```bash
 PUT /subscriptions/cancel
 Authorization: Bearer {user_token}
@@ -1442,20 +1921,56 @@ Authorization: Bearer {user_token}
 }
 ```
 
+**Note:**
+- `isSubscribe` in user profile automatically becomes `false` when subscription is canceled
+- Subscription dates remain in profile but `isSubscribe` reflects cancellation
+
 ### Family Plan Features:
 
-#### Step 1: Activate Family Plan
+**Important:** Family plans work differently from normal plans:
+- **Family Head** pays: ₦2,000/month or ₦20,000/year (full price)
+- **Family Members** (up to 4 others) pay: ₦1,000/month or ₦10,000/year (half price)
+- **Each member has their own subscription** - they don't share one subscription
+- Members must activate their own subscription after being added to the family group
+
+#### Step 1: Activate Family Plan (Head User)
 ```bash
 POST /subscriptions/activate
-Authorization: Bearer {user_token}
+Authorization: Bearer {head_user_token}
 Content-Type: application/json
 
 {
   "plan_id": "plan-uuid-2",
-  "payment_method": "wallet",
-  "family_member_ids": ["member-uuid-1", "member-uuid-2"]
+  "payment_method": "wallet"
 }
 ```
+
+**Response:**
+```json
+{
+  "subscription": {
+    "subscription_id": "sub-uuid-head",
+    "user_id": "head-user-uuid",
+    "plan_id": "plan-uuid-2",
+    "status": "active",
+    "start_date": "2024-01-15T10:00:00Z",
+    "end_date": "2024-02-15T10:00:00Z",
+    "is_family_member": false,
+    "price_paid": 2000,
+    "head_price": 2000
+  },
+  "payment": {
+    "payment_id": "payment-uuid",
+    "amount": 2000,
+    "status": "success"
+  }
+}
+```
+
+**Note:** 
+- Head pays full price (₦2,000/month or ₦20,000/year)
+- Family group is automatically created when head activates family plan
+- After activating, head can add family members
 
 #### Step 2: View Family Group
 ```bash
@@ -1484,10 +1999,10 @@ Authorization: Bearer {user_token}
 }
 ```
 
-#### Step 3: Add Family Member
+#### Step 3: Add Family Member (Head Only)
 ```bash
 POST /subscriptions/family/members
-Authorization: Bearer {user_token}
+Authorization: Bearer {head_user_token}
 Content-Type: application/json
 
 {
@@ -1495,7 +2010,68 @@ Content-Type: application/json
 }
 ```
 
-#### Step 4: Remove Family Member
+**Response:**
+```json
+{
+  "family_member_id": "member-uuid",
+  "family_group_id": "group-uuid",
+  "user_id": "new-member-uuid",
+  "is_head": false,
+  "subscription_required": true,
+  "member_price": 1000,
+  "billing_cycle": "monthly",
+  "message": "Family member added. Member must activate their subscription by paying ₦1000.00 (monthly)"
+}
+```
+
+**Note:**
+- Member must NOT have an active subscription (they need to cancel existing one first)
+- A pending subscription is automatically created for the member
+- Member needs to activate their subscription by paying member price (₦1,000/month or ₦10,000/year)
+- Member will receive notification to activate their subscription
+
+#### Step 4: Member Activates Their Subscription
+After being added to family group, the member must activate their subscription:
+
+```bash
+POST /subscriptions/activate
+Authorization: Bearer {member_user_token}
+Content-Type: application/json
+
+{
+  "plan_id": "plan-uuid-2",
+  "payment_method": "wallet"
+}
+```
+
+**Response:**
+```json
+{
+  "subscription": {
+    "subscription_id": "sub-uuid-member",
+    "user_id": "member-user-uuid",
+    "plan_id": "plan-uuid-2",
+    "status": "active",
+    "start_date": "2024-01-15T10:00:00Z",
+    "end_date": "2024-02-15T10:00:00Z",
+    "is_family_member": true,
+    "price_paid": 1000,
+    "head_price": 2000
+  },
+  "payment": {
+    "payment_id": "payment-uuid",
+    "amount": 1000,
+    "status": "success"
+  }
+}
+```
+
+**Note:**
+- Member pays half price (₦1,000/month or ₦10,000/year)
+- System automatically detects member status and applies member pricing
+- Pending subscription created when member was added is now activated
+
+#### Step 5: Remove Family Member
 ```bash
 DELETE /subscriptions/family/members
 Authorization: Bearer {user_token}
@@ -1515,29 +2091,135 @@ Content-Type: application/json
 - `yearly` - Yearly billing
 
 ### Subscription Status:
-- `pending` - Subscription pending payment
-- `active` - Subscription active
-- `expired` - Subscription expired
-- `canceled` - Subscription canceled
+- `pending` - Subscription pending payment (for external payments)
+- `active` - Subscription active and valid
+- `expired` - Subscription has expired (automatically marked when end_date passes)
+- `canceled` - Subscription was manually canceled
+- `paused` - Subscription is temporarily paused
 
 ### Payment Methods:
-- `wallet` - Payment from wallet balance (instant activation)
-- `external` - Payment via Paystack (pending until confirmed)
+- `wallet` - Payment from wallet balance (instant activation, syncs `isSubscribe` immediately)
+- `external` - Payment via Paystack (creates pending subscription, activates when payment webhook confirms)
+
+### Subscription Expiration Tracking:
+- ✅ **Automatic Expiration**: System checks for expired subscriptions every hour via cron job
+- ✅ **Expired Date Tracking**: `expired_date` is automatically set when subscription expires
+- ✅ **Profile Sync**: `isSubscribe` in user profile automatically updates to `false` when subscription expires
+- ✅ **Real-time Check**: When fetching active subscription, system checks if it has expired and updates status
+- ✅ **Payment Webhook**: External payments automatically activate subscription when payment is confirmed
 
 ### Family Group Rules:
-- ✅ Head user (creator) cannot be removed
-- ✅ Max 5 members per family plan
-- ✅ All members share same subscription
-- ✅ Only head can add/remove members
-- ✅ Family members must be in same estate
+- ✅ **Head user (creator) cannot be removed**
+- ✅ **Max 5 members per family plan** (1 head + 4 members)
+- ✅ **Each member has their own subscription** - they don't share one subscription
+- ✅ **Head pays full price**: ₦2,000/month or ₦20,000/year
+- ✅ **Members pay half price**: ₦1,000/month or ₦10,000/year
+- ✅ **Only head can add/remove members**
+- ✅ **Members must activate their own subscription** after being added
+- ✅ **Family members must be in same estate**
+- ✅ **Member must cancel existing subscription** before joining family plan
+
+### Admin Operations (Super Admin Only):
+
+#### Grant Free Subscription
+Super Admins can grant free subscriptions to users with custom duration:
+
+```bash
+POST /subscriptions/admin/grant-free
+Authorization: Bearer {super_admin_token}
+Content-Type: application/json
+
+{
+  "user_id": "user-uuid",
+  "plan_id": "plan-uuid-1",
+  "duration_days": 30
+}
+```
+
+**Response:**
+```json
+{
+  "subscription_id": "sub-uuid",
+  "user_id": "user-uuid",
+  "plan_id": "plan-uuid-1",
+  "status": "active",
+  "start_date": "2024-01-15T10:00:00Z",
+  "end_date": "2024-02-14T10:00:00Z",
+  "expired_date": null,
+  "is_free_subscription": true,
+  "granted_by_admin": "admin-uuid",
+  "plan": {
+    "plan_id": "plan-uuid-1",
+    "name": "Normal Monthly Plan",
+    "type": "normal",
+    "price_ngn": 5000,
+    "billing_cycle": "monthly"
+  }
+}
+```
+
+**Note:**
+- User must not have an active subscription (cancel existing one first if needed)
+- `duration_days` can be any positive number (e.g., 7, 30, 90, 365)
+- Subscription is immediately active
+- `isSubscribe` in user profile is automatically set to `true`
+- Works with both normal and family plans
+
+#### Manually Check Expired Subscriptions
+Admins can manually trigger expiration check:
+
+```bash
+POST /subscriptions/admin/check-expired
+Authorization: Bearer {admin_token}
+```
+
+**Response:**
+```json
+{
+  "checked": 150,
+  "expired": 5,
+  "subscription_ids": [
+    "sub-uuid-1",
+    "sub-uuid-2",
+    "sub-uuid-3",
+    "sub-uuid-4",
+    "sub-uuid-5"
+  ]
+}
+```
+
+**Note:** 
+- Cron job runs automatically every hour, but admins can trigger manual check
+- Updates `expired_date` and sets `isSubscribe` to `false` for expired subscriptions
 
 ### Important Notes:
-- ✅ Subscriptions are automatically renewed based on billing cycle
-- ✅ Users can cancel subscriptions anytime
-- ✅ Family plans allow up to 5 members
-- ✅ Wallet payments activate instantly
-- ✅ External payments require confirmation
-- ✅ Subscription expiry is tracked automatically
+- ✅ **Automatic Expiration**: System checks for expired subscriptions every hour (cron job)
+- ✅ **Expired Date Tracking**: `expired_date` field is automatically set and updated when subscription expires
+- ✅ **Profile Sync**: `isSubscribe` in user profile automatically syncs with subscription status
+- ✅ **Auto Update**: `isSubscribe` becomes `false` automatically when subscription expires or is canceled
+- ✅ **Payment Activation**: External payments automatically activate subscription when webhook confirms payment
+- ✅ **Real-time Validation**: Fetching active subscription checks expiration and updates if needed
+- ✅ **Renewal**: Renewing subscription clears `expired_date` and extends `end_date`
+- ✅ **Free Subscriptions**: Super Admins can grant free subscriptions with custom duration
+- ✅ **Family Plans**: 
+  - Head pays ₦2,000/month or ₦20,000/year
+  - Members pay ₦1,000/month or ₦10,000/year
+  - Each member has their own subscription (not shared)
+  - Member pricing is automatically applied when member activates/renews
+- ✅ **Wallet Payments**: Activate instantly and sync profile immediately
+- ✅ **External Payments**: Create pending subscription, activate when payment confirmed via webhook
+
+### Subscription Lifecycle:
+1. **Activation**: User activates subscription → Status becomes `active` → `isSubscribe` becomes `true`
+   - **Family Head**: Pays full price (₦2,000/month or ₦20,000/year)
+   - **Family Member**: Pays half price (₦1,000/month or ₦10,000/year) - automatically detected
+2. **Renewal**: User renews subscription → `end_date` extended → `expired_date` cleared → `isSubscribe` remains `true`
+   - **Family Head**: Pays full price on renewal
+   - **Family Member**: Pays half price on renewal
+3. **Expiration**: Cron job checks hourly → Finds expired subscriptions → Sets `expired_date` → Status becomes `expired` → `isSubscribe` becomes `false`
+4. **Cancellation**: User cancels → Status becomes `canceled` → `isSubscribe` becomes `false`
+5. **Free Grant**: Admin grants free subscription → Status immediately `active` → `isSubscribe` becomes `true`
+6. **Family Member Addition**: Head adds member → Pending subscription created → Member activates by paying member price → Status becomes `active`
 
 ---
 
@@ -1545,20 +2227,63 @@ Content-Type: application/json
 
 ### Estate Scoping Summary:
 - ✅ **Access Codes**: Scoped to creator's estate (security can only verify their estate's codes)
-- ✅ **Alerts**: Scoped to recipient estate (only estate residents receive alerts)
+- ✅ **Alerts**: Scoped to sender's estate (residents can alert other residents in their estate)
 - ✅ **Lost & Found**: Scoped to reporter's estate (only estate residents see items)
 - ✅ **Service Charges**: Scoped to user's estate (admins see only their estate's charges)
 - ✅ **Service Providers**: Scoped to estate (registered by estate admins, visible to estate residents)
 
+### Key Distinctions:
+- **Alerts** - For **all authenticated users** (residents, admins, security) to quickly notify other residents in their estate (e.g., road blocks, maintenance warnings, utility interruptions)
+- **Announcements** - For **admins only** to send official estate communications (e.g., payment reminders, events, policy changes)
+
 ### Common Patterns:
-1. **Admin Operations**: Require `Admin` or `Super Admin` role
-2. **Estate Scoping**: All features automatically filter by `estate_id`
-3. **Payment Methods**: Wallet (instant) or External (Paystack)
-4. **User Activation**: Admin must activate users after OTP verification
-5. **Notifications**: Automatic push notifications for alerts and important events
+1. **Admin Operations**: Require `Admin` or `Super Admin` role (create estates, make admins, send announcements, validate payments, grant free subscriptions)
+2. **Resident Operations**: All authenticated users can perform (alerts, lost & found, service charges, wallet operations, subscriptions)
+3. **Estate Scoping**: All features automatically filter by `estate_id` (alerts, lost & found, service charges, providers)
+4. **Payment Methods**: Wallet (instant) or External (Paystack with webhook activation)
+5. **User Activation**: Admin must activate users after OTP verification
+6. **Notifications**: Automatic push notifications for alerts and important events
+7. **Lost & Found**: Requires `estate_id` in request body (must match user's estate)
+8. **Family Plans**: 
+   - Head activates plan and pays full price (₦2,000/month or ₦20,000/year)
+   - Members are added separately and must activate their own subscription
+   - Members pay half price (₦1,000/month or ₦10,000/year)
+   - Each member has their own subscription (not shared)
+9. **Subscription Tracking**: `isSubscribe` automatically syncs with subscription status, expiration tracked via `expired_date`
+10. **Automated Systems**: Cron jobs handle subscription expiration checks hourly
+11. **Family Member Pricing**: System automatically detects family member status and applies 50% discount on activation and renewal
+
+### Role-Based Access:
+- **Super Admin**: Can manage all estates and users
+- **Estate Admin**: Can manage their estate (users, announcements, service charges, providers)
+- **Security Personnel**: Can verify access codes for their estate
+- **Residents**: Can send alerts, report lost & found, upload service charge receipts, book services
 
 ---
 
 **Last Updated:** January 2024  
-**Version:** 1.0
+**Version:** 1.3
+
+### Changelog:
+- **v1.3** (January 2024): 
+  - Added `creator_house_address` to access code responses (create, get, validate)
+  - Updated documentation to reflect house address in all access code endpoints
+- **v1.2** (January 2024): 
+  - Added subscription expiration tracking (`expired_date` field)
+  - Added automatic `isSubscribe` synchronization with subscription status
+  - Added admin free subscription feature (Super Admin can grant subscriptions with custom duration)
+  - Added automated cron job for subscription expiration checks (runs every hour)
+  - Added manual expiration check endpoint for admins
+  - Updated payment webhook to automatically activate subscriptions
+  - Updated subscription lifecycle documentation
+  - Updated family plan pricing (head pays full price, members pay half price)
+- **v1.1** (January 2024): 
+  - Updated service charge workflow (users upload receipts, admins update amounts)
+  - Fixed alerts/announcements logic (alerts for residents, announcements for admins)
+  - Added service provider photos field (up to 5 uploads)
+  - Updated Lost & Found to require `estate_id` in request body
+  - Updated Family Plans (members added separately after activation)
+  - Added optional image uploads for admin announcements
+  - Added service charge attachment to user responses (by estate/by ID)
+- **v1.0** (January 2024): Initial complete user guide
 

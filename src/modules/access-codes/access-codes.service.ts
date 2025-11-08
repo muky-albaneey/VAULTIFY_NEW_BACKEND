@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccessCode } from '../../entities/access-code.entity';
 import { User } from '../../entities/user.entity';
+import { UserProfile } from '../../entities/user-profile.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface CreateAccessCodeDto {
@@ -23,6 +24,8 @@ export class AccessCodesService {
     private accessCodeRepository: Repository<AccessCode>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(UserProfile)
+    private userProfileRepository: Repository<UserProfile>,
   ) {}
 
   async createAccessCode(userId: string, createData: CreateAccessCodeDto) {
@@ -48,14 +51,37 @@ export class AccessCodesService {
       is_active: true,
     });
 
-    return await this.accessCodeRepository.save(accessCode);
+    const savedAccessCode = await this.accessCodeRepository.save(accessCode);
+
+    // Get creator's profile to include house address
+    const creatorProfile = await this.userProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    return {
+      ...savedAccessCode,
+      creator_house_address: creatorProfile?.house_address || null,
+    };
   }
 
   async getAccessCodes(userId: string) {
-    return await this.accessCodeRepository.find({
+    const accessCodes = await this.accessCodeRepository.find({
       where: { creator_user_id: userId },
       order: { created_at: 'DESC' },
     });
+
+    // Get creator's profile to include house address
+    const creatorProfile = await this.userProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    const houseAddress = creatorProfile?.house_address || null;
+
+    // Add house address to each access code
+    return accessCodes.map(code => ({
+      ...code,
+      creator_house_address: houseAddress,
+    }));
   }
 
   async validateAccessCode(code: string) {
@@ -77,6 +103,11 @@ export class AccessCodesService {
       throw new BadRequestException('Access code has reached maximum uses');
     }
 
+    // Get creator's profile to include house address
+    const creatorProfile = await this.userProfileRepository.findOne({
+      where: { user_id: accessCode.creator_user_id },
+    });
+
     // Increment usage count
     accessCode.current_uses += 1;
     await this.accessCodeRepository.save(accessCode);
@@ -87,6 +118,7 @@ export class AccessCodesService {
       visitor_email: accessCode.visitor_email,
       visitor_phone: accessCode.visitor_phone,
       creator_name: `${accessCode.creator.first_name} ${accessCode.creator.last_name}`,
+      creator_house_address: creatorProfile?.house_address || null,
       valid_from: accessCode.valid_from,
       valid_to: accessCode.valid_to,
       remaining_uses: accessCode.max_uses - accessCode.current_uses,

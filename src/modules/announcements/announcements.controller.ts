@@ -35,6 +35,7 @@ const CreateAnnouncementSchema = z.object({
       utility_account_id: z.string().uuid().optional(),
     })
     .optional(),
+  image_urls: z.array(z.string().url()).optional(),
 });
 
 const PaymentReminderSchema = z.object({

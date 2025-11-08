@@ -261,6 +261,112 @@ Content-Type: application/json
 
 ---
 
+## Getting Users by Estate
+
+Estate Admins and Super Admins can retrieve all residents in their estate. Service charges are automatically included in the response.
+
+### Endpoint: Get Users by Estate
+
+```bash
+GET /users/estate/{estateId}?page=1&limit=20
+Authorization: Bearer {admin_token}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "user_id": "user-uuid",
+      "email": "resident@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "status": "active",
+      "profile": {
+        "estate_id": "estate-uuid",
+        "role": "Residence",
+        "apartment_type": "2-Bedroom",
+        "house_address": "Block A, Flat 101"
+      },
+      "service_charge": {
+        "bsc_id": "bsc-uuid",
+        "service_charge": 50000,
+        "paid_charge": 30000,
+        "outstanding_charge": 20000,
+        "payment_frequency": "monthly",
+        "bank_name": "Access Bank",
+        "account_name": "Paradise Estate",
+        "account_number": "1234567890",
+        "is_validated": false,
+        "files": [
+          {
+            "bsc_file_id": "file-uuid",
+            "file_url": "https://storage.example.com/receipt.pdf",
+            "uploaded_at": "2024-01-15T11:00:00Z"
+          }
+        ]
+      }
+    }
+  ],
+  "total": 50,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 3
+}
+```
+
+**Note:** 
+- ✅ Service charge information is automatically included for each user
+- ✅ If a user doesn't have a service charge record, `service_charge` will be `null`
+- ✅ Service charge includes files (receipts/images) if any were uploaded
+- ✅ Estate Admins can only see users from their own estate
+
+### Endpoint: Get User by ID
+
+```bash
+GET /users/{userId}
+Authorization: Bearer {admin_token}
+```
+
+**Response:**
+```json
+{
+  "user_id": "user-uuid",
+  "email": "resident@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "status": "active",
+  "profile": {
+    "estate_id": "estate-uuid",
+    "role": "Residence"
+  },
+  "service_charge": {
+    "bsc_id": "bsc-uuid",
+    "service_charge": 50000,
+    "paid_charge": 30000,
+    "outstanding_charge": 20000,
+    "payment_frequency": "monthly",
+    "is_validated": false,
+    "files": []
+  }
+}
+```
+
+**Note:** Service charge is also included when getting a single user by ID.
+
+### Endpoint: Search Users
+
+```bash
+GET /users/search?query=john&estate_id={estateId}
+Authorization: Bearer {admin_token}
+```
+
+**Response:** Array of users with service charges included.
+
+**Note:** When filtering by `estate_id`, service charges are automatically included in the results.
+
+---
+
 ## Activating/Suspending Users
 
 Admins can activate or suspend user accounts. Users must be activated by an admin before they can login, even after OTP verification.
