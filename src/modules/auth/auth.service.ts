@@ -98,7 +98,7 @@ export class AuthService {
     const userProfile = this.userProfileRepository.create({
       user_id: savedUser.user_id,
       estate_id: estate_id,
-      role: 'Residence', // Default role, can be changed by admin later
+      role: UserRole.RESIDENCE, // Default role, can be changed by admin later
     });
     await this.userProfileRepository.save(userProfile);
 
