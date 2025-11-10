@@ -55,7 +55,7 @@ const RegisterSimpleSchema = z.object({
 });
 
 const ChangeRoleSchema = z.object({
-  role: z.enum(['Residence', 'Security Personnel', 'Admin', 'Super Admin']),
+  role: z.nativeEnum(UserRole),
 });
 
 @ApiTags('Authentication')
@@ -195,7 +195,12 @@ export class AuthController {
       first_name: z.string().min(1),
       last_name: z.string().min(1),
     });
-    const validatedData = schema.parse(body);
+    const validatedData = schema.parse(body) as {
+      email: string;
+      password: string;
+      first_name: string;
+      last_name: string;
+    };
     return this.authService.createTempSuperAdmin(validatedData);
   }
 }
