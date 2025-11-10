@@ -40,8 +40,14 @@ FROM node:18-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# Install all deps (including dev) for running migrations with TypeScript
+RUN npm ci && npm cache clean --force
 COPY --from=builder /app/dist ./dist
+# Copy source files needed for migrations (TypeORM needs TS files to run migrations)
+COPY --from=builder /app/src/database ./src/database
+COPY --from=builder /app/src/config ./src/config
+COPY --from=builder /app/src/entities ./src/entities
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 # keep your uploads dir writeable
 RUN mkdir -p /app/uploads
 EXPOSE 3000
