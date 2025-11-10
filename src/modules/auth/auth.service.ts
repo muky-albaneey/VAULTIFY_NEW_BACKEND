@@ -7,6 +7,7 @@ import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from '../../entities/user.entity';
 import { UserProfile, UserRole } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
+import { Wallet } from '../../entities/wallet.entity';
 import { JwtPayload, RefreshTokenPayload } from '../../common/interfaces/common.interface';
 import { EmailService } from '../../common/services/email.service';
 
@@ -21,6 +22,13 @@ export interface RegisterDto {
   first_name: string;
   last_name: string;
   estate_id: string;
+}
+
+export interface RegisterSimpleDto {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
 }
 
 export interface AuthResponse {
@@ -44,6 +52,8 @@ export class AuthService {
     private userProfileRepository: Repository<UserProfile>,
     @InjectRepository(Estate)
     private estateRepository: Repository<Estate>,
+    @InjectRepository(Wallet)
+    private walletRepository: Repository<Wallet>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private emailService: EmailService
@@ -99,6 +109,59 @@ export class AuthService {
       user_id: savedUser.user_id,
       estate_id: estate_id,
       role: UserRole.RESIDENCE, // Default role, can be changed by admin later
+    });
+    await this.userProfileRepository.save(userProfile);
+
+    // Send OTP email
+    await this.emailService.sendOTP(email, `${first_name} ${last_name}`, otp);
+
+    return {
+      message:
+        "Registration successful. Please check your email for verification code.",
+      user_id: savedUser.user_id,
+    };
+  }
+
+  async registerSimple(
+    registerDto: RegisterSimpleDto
+  ): Promise<{ message: string; user_id: string }> {
+    const { email, password, first_name, last_name } = registerDto;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
+    if (existingUser) {
+      throw new BadRequestException("User with this email already exists");
+    }
+
+    // Hash password
+    const saltRounds = this.configService.get("security.bcryptRounds");
+    const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date();
+    otpExpires.setMinutes(otpExpires.getMinutes() + 10); // OTP expires in 10 minutes
+
+    // Create user with PENDING status
+    const user = this.userRepository.create({
+      email,
+      password_hash,
+      first_name,
+      last_name,
+      status: UserStatus.PENDING,
+      verification_code: otp,
+      verification_code_expires: otpExpires,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Create user profile with Residence role (no estate_id required)
+    const userProfile = this.userProfileRepository.create({
+      user_id: savedUser.user_id,
+      role: UserRole.RESIDENCE, // Default role
+      estate_id: null, // No estate assigned initially
     });
     await this.userProfileRepository.save(userProfile);
 
@@ -354,5 +417,90 @@ export class AuthService {
     user.verification_code = null;
     user.verification_code_expires = null;
     await this.userRepository.save(user);
+  }
+
+  async changeRole(userId: string, newRole: UserRole): Promise<{ message: string; user_id: string; role: UserRole }> {
+    // Find user profile
+    let profile = await this.userProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      // Create profile if it doesn't exist
+      profile = this.userProfileRepository.create({
+        user_id: userId,
+        role: newRole,
+      });
+    } else {
+      // Update role
+      profile.role = newRole;
+      
+      // If changing to Super Admin, remove estate_id
+      if (newRole === UserRole.SUPER_ADMIN) {
+        profile.estate_id = null;
+      }
+    }
+
+    await this.userProfileRepository.save(profile);
+
+    return {
+      message: 'Role changed successfully',
+      user_id: userId,
+      role: newRole,
+    };
+  }
+
+  async createTempSuperAdmin(data: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+  }): Promise<{ message: string; user_id: string; email: string; role: UserRole }> {
+    const { email, password, first_name, last_name } = data;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
+    if (existingUser) {
+      throw new BadRequestException("User with this email already exists");
+    }
+
+    // Hash password
+    const saltRounds = this.configService.get("security.bcryptRounds");
+    const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Create user with ACTIVE status (no OTP required for temp endpoint)
+    const user = this.userRepository.create({
+      email,
+      password_hash,
+      first_name,
+      last_name,
+      status: UserStatus.ACTIVE, // Directly active, no OTP needed
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Create super admin profile
+    const userProfile = this.userProfileRepository.create({
+      user_id: savedUser.user_id,
+      role: UserRole.SUPER_ADMIN,
+      estate_id: null, // Super Admin doesn't need estate
+    });
+    await this.userProfileRepository.save(userProfile);
+
+    // Create wallet
+    const wallet = this.walletRepository.create({
+      user_id: savedUser.user_id,
+      available_balance: 0,
+    });
+    await this.walletRepository.save(wallet);
+
+    return {
+      message: '⚠️ TEMPORARY: Super admin created successfully. REMOVE THIS ENDPOINT IN PRODUCTION!',
+      user_id: savedUser.user_id,
+      email: savedUser.email,
+      role: UserRole.SUPER_ADMIN,
+    };
   }
 }

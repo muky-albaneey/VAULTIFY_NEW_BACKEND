@@ -1,9 +1,12 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Put, Body, UseGuards, HttpCode, HttpStatus, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { AuthService, LoginDto, RegisterDto } from './auth.service';
-import { LocalAuthGuard } from './auth.guards';
+import { AuthService, LoginDto, RegisterDto, RegisterSimpleDto } from './auth.service';
+import { LocalAuthGuard, JwtAuthGuard } from './auth.guards';
 import { Public } from '../../common/decorators/custom.decorators';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
+import { UserRole } from '../../entities/user-profile.entity';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/custom.decorators';
 import { z } from 'zod';
 
 // Validation schemas
@@ -44,6 +47,17 @@ const VerifyOTPSchema = z.object({
   otp: z.string().length(6),
 });
 
+const RegisterSimpleSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  first_name: z.string().min(1),
+  last_name: z.string().min(1),
+});
+
+const ChangeRoleSchema = z.object({
+  role: z.enum(['Residence', 'Security Personnel', 'Admin', 'Super Admin']),
+});
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -52,12 +66,23 @@ export class AuthController {
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user and send OTP' })
+  @ApiOperation({ summary: 'Register a new user with estate and send OTP' })
   @ApiResponse({ status: 201, description: 'User registered successfully. OTP sent to email.' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async register(@Body() registerDto: RegisterDto) {
     const validatedData = RegisterSchema.parse(registerDto) as RegisterDto;
     return this.authService.register(validatedData);
+  }
+
+  @Post('register-simple')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user without estate (becomes Residence by default) and send OTP' })
+  @ApiResponse({ status: 201, description: 'User registered successfully. OTP sent to email.' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async registerSimple(@Body() registerDto: RegisterSimpleDto) {
+    const validatedData = RegisterSimpleSchema.parse(registerDto) as RegisterSimpleDto;
+    return this.authService.registerSimple(validatedData);
   }
 
   @Post('verify-otp')
@@ -131,5 +156,46 @@ export class AuthController {
     const validatedData = ResetPasswordSchema.parse(body);
     await this.authService.resetPassword(validatedData.email, validatedData.otp, validatedData.new_password);
     return { message: 'Password reset successfully' };
+  }
+
+  @Put('change-role/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change user role (Admin/Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'Role changed successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  async changeRole(
+    @Param('userId') userId: string,
+    @Body() body: { role: UserRole },
+  ) {
+    const validatedData = ChangeRoleSchema.parse(body);
+    return this.authService.changeRole(userId, validatedData.role);
+  }
+
+  @Post('create-super-admin-temp')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ 
+    summary: '⚠️ TEMPORARY: Create super admin without authentication (REMOVE IN PRODUCTION!)',
+    description: 'This is a temporary endpoint for bootstrapping the first super admin. Should be disabled/removed in production.'
+  })
+  @ApiResponse({ status: 201, description: 'Super admin created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async createTempSuperAdmin(@Body() body: { 
+    email: string; 
+    password: string; 
+    first_name: string; 
+    last_name: string;
+  }) {
+    const schema = z.object({
+      email: z.string().email(),
+      password: z.string().min(6),
+      first_name: z.string().min(1),
+      last_name: z.string().min(1),
+    });
+    const validatedData = schema.parse(body);
+    return this.authService.createTempSuperAdmin(validatedData);
   }
 }

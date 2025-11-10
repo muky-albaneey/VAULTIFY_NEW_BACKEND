@@ -7,7 +7,7 @@ http://localhost:3000
 
 ## Authentication Endpoints
 
-### 1. Register User
+### 1. Register User (With Estate)
 **POST** `/auth/register`
 **No Auth Required**
 
@@ -22,6 +22,28 @@ http://localhost:3000
 ```
 
 ---
+
+### 1A. Register User (Simple - No Estate Required)
+**POST** `/auth/register-simple`
+**No Auth Required**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+
+**Note:** 
+- User becomes "Residence" by default
+- No estate_id required
+- User will need to be assigned to an estate later by admin if needed
+- Still requires OTP verification
+
+---
+
 
 ### 2. Verify OTP
 **POST** `/auth/verify-otp`
@@ -100,16 +122,113 @@ http://localhost:3000
 
 ---
 
+### 8. Change User Role
+**PUT** `/auth/change-role/:userId`
+**Auth Required: Bearer Token + Admin/Super Admin Role**
+
+```json
+{
+  "role": "Security Personnel"
+}
+```
+
+**Role Options:**
+- `"Residence"`
+- `"Security Personnel"`
+- `"Admin"`
+- `"Super Admin"`
+
+**URL Parameter:** Replace `:userId` with the user UUID
+
+**Example - Change to Security Personnel:**
+```json
+PUT http://localhost:3000/auth/change-role/123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer {{admin_token}}
+
+{
+  "role": "Security Personnel"
+}
+```
+
+**Example - Change to Admin:**
+```json
+PUT http://localhost:3000/auth/change-role/123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer {{admin_token}}
+
+{
+  "role": "Admin"
+}
+```
+
+**Note:** 
+- Only Admin and Super Admin can change roles
+- When changing to Super Admin, the estate_id is automatically removed
+- User must exist and have a profile
+
+---
+
+### 9. ⚠️ TEMPORARY: Create Super Admin (No Auth Required)
+**POST** `/auth/create-super-admin-temp`
+**⚠️ NO AUTH REQUIRED - TEMPORARY ENDPOINT**
+**⚠️ REMOVE THIS IN PRODUCTION!**
+
+```json
+{
+  "email": "superadmin@vaultify.com",
+  "password": "superadmin123",
+  "first_name": "Super",
+  "last_name": "Admin"
+}
+```
+
+**⚠️ SECURITY WARNING:**
+- This endpoint has NO authentication
+- Creates a Super Admin account immediately (no OTP, no activation needed)
+- Should ONLY be used for bootstrapping the first super admin
+- **MUST be removed or disabled in production**
+
+**Response:**
+```json
+{
+  "message": "⚠️ TEMPORARY: Super admin created successfully. REMOVE THIS ENDPOINT IN PRODUCTION!",
+  "user_id": "123e4567-e89b-12d3-a456-426614174000",
+  "email": "superadmin@vaultify.com",
+  "role": "Super Admin"
+}
+```
+
+**Example:**
+```json
+POST http://localhost:3000/auth/create-super-admin-temp
+{
+  "email": "superadmin@vaultify.com",
+  "password": "superadmin123",
+  "first_name": "Super",
+  "last_name": "Admin"
+}
+```
+
+**After creating, you can immediately login:**
+```json
+POST http://localhost:3000/auth/login
+{
+  "email": "superadmin@vaultify.com",
+  "password": "superadmin123"
+}
+```
+
+---
+
 ## User Endpoints
 
-### 8. Get Current User Profile
+### 10. Get Current User Profile
 **GET** `/users/me`
 **Auth Required: Bearer Token**
 **No Body Required**
 
 ---
 
-### 9. Update User Profile
+### 11. Update User Profile
 **PUT** `/users/me/profile`
 **Auth Required: Bearer Token**
 
@@ -149,7 +268,7 @@ http://localhost:3000
 
 ---
 
-### 10. Register Device for Push Notifications
+### 12. Register Device for Push Notifications
 **POST** `/users/me/devices`
 **Auth Required: Bearer Token**
 
@@ -185,7 +304,7 @@ http://localhost:3000
 
 ---
 
-### 11. Unregister Device
+### 13. Unregister Device
 **DELETE** `/users/me/devices/:token`
 **Auth Required: Bearer Token**
 **No Body Required**
@@ -194,14 +313,14 @@ http://localhost:3000
 
 ---
 
-### 12. Get User Devices
+### 14. Get User Devices
 **GET** `/users/me/devices`
 **Auth Required: Bearer Token**
 **No Body Required**
 
 ---
 
-### 13. Search Users
+### 15. Search Users
 **GET** `/users/search?query=john&estate_id=123e4567-e89b-12d3-a456-426614174000`
 **Auth Required: Bearer Token**
 **No Body Required**
@@ -218,7 +337,7 @@ http://localhost:3000
 
 ---
 
-### 14. Get User by ID
+### 16. Get User by ID
 **GET** `/users/:id`
 **Auth Required: Bearer Token**
 **No Body Required**
@@ -227,7 +346,7 @@ http://localhost:3000
 
 ---
 
-### 15. Update User Status
+### 17. Update User Status
 **PUT** `/users/:id/status`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 
@@ -251,7 +370,7 @@ http://localhost:3000
 
 ---
 
-### 16. Activate User
+### 18. Activate User
 **PUT** `/users/:id/activate`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 **No Body Required**
@@ -260,7 +379,7 @@ http://localhost:3000
 
 ---
 
-### 17. Suspend User
+### 19. Suspend User
 **PUT** `/users/:id/suspend`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 **No Body Required**
@@ -269,7 +388,7 @@ http://localhost:3000
 
 ---
 
-### 18. Get Users by Estate
+### 20. Get Users by Estate
 **GET** `/users/estate/:estateId?page=1&limit=20`
 **Auth Required: Bearer Token + Admin/Security/Super Admin Role**
 **No Body Required**
@@ -288,7 +407,7 @@ http://localhost:3000
 
 ---
 
-### 19. Assign Estate to User
+### 21. Assign Estate to User
 **PUT** `/users/:id/assign-estate`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 
@@ -338,7 +457,7 @@ http://localhost:3000
 
 ---
 
-### 20. Make User Estate Admin
+### 22. Make User Estate Admin
 **PUT** `/users/:id/make-admin`
 **Auth Required: Bearer Token + Super Admin Role**
 
@@ -352,7 +471,7 @@ http://localhost:3000
 
 ---
 
-### 21. Make User Super Admin
+### 23. Make User Super Admin
 **PUT** `/users/:id/make-super-admin`
 **Auth Required: Bearer Token + Super Admin Role**
 
@@ -401,7 +520,19 @@ Content-Type: application/json
 
 ## Complete Flow Example
 
-### Step 1: Register
+### Step 1: Register (Simple - No Estate Required)
+```json
+POST {{base_url}}/auth/register-simple
+{
+  "email": "newuser@example.com",
+  "password": "password123",
+  "first_name": "Jane",
+  "last_name": "Smith"
+}
+```
+**Response:** `{ "message": "...", "user_id": "..." }`
+
+**OR Register with Estate:**
 ```json
 POST {{base_url}}/auth/register
 {
@@ -499,7 +630,7 @@ Authorization: Bearer {{access_token}}
 
 ## Estate Endpoints
 
-### 22. Create Estate
+### 24. Create Estate
 **POST** `/estates`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 
@@ -518,7 +649,7 @@ Authorization: Bearer {{access_token}}
 
 ---
 
-### 23. Get All Estates
+### 25. Get All Estates
 **GET** `/estates?page=1&limit=20`
 **Auth Required: Bearer Token**
 **No Body Required**
@@ -536,7 +667,7 @@ Authorization: Bearer {{access_token}}
 
 ---
 
-### 24. Search Estates
+### 26. Search Estates
 **GET** `/estates/search?query=sunset`
 **Auth Required: Bearer Token**
 **No Body Required**
@@ -553,7 +684,7 @@ Authorization: Bearer {{access_token}}
 
 ---
 
-### 25. Get Estate by ID
+### 27. Get Estate by ID
 **GET** `/estates/:id`
 **Auth Required: Bearer Token**
 **No Body Required**
@@ -567,7 +698,7 @@ Authorization: Bearer {{access_token}}
 
 ---
 
-### 26. Update Estate
+### 28. Update Estate
 **PUT** `/estates/:id`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 
@@ -613,7 +744,7 @@ Authorization: Bearer {{access_token}}
 
 ---
 
-### 27. Delete Estate
+### 29. Delete Estate
 **DELETE** `/estates/:id`
 **Auth Required: Bearer Token + Admin/Super Admin Role**
 **No Body Required**

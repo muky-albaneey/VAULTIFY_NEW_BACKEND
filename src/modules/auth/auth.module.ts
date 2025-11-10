@@ -11,10 +11,11 @@ import { LocalStrategy } from './local.strategy';
 import { User } from '../../entities/user.entity';
 import { UserProfile } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
+import { Wallet } from '../../entities/wallet.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserProfile, Estate]),
+    TypeOrmModule.forFeature([User, UserProfile, Estate, Wallet]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
