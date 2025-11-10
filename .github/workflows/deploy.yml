@@ -30,20 +30,35 @@ jobs:
           script: |
             set -e  # Exit on error
             echo "Deploying from branch: $GITHUB_REF"
+
+            # Go to the backend directory
+            cd /home/VAULTIFY_NEW_BACKEND/  
+
+
+            git fetch origin
+
             if [ "${{ github.ref }}" == "refs/heads/main" ]; then
               echo "Deploying from main branch..."
-              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your backend directory
-              git pull origin main  # Pull the latest code
-              npm install  # Install dependencies
-              npm run build  # Build the app (if required)
-              pm2 restart vaultify-v2  # Restart PM2 app
+              git reset --hard origin/main  
             elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
               echo "Deploying from dev branch..."
-              cd /home/VAULTIFY_NEW_BACKEND/  # Change to your backend directory
-              git pull origin dev  # Pull the latest code from dev branch
-              npm install  # Install dependencies
-              npm run build  # Build the app (if required)
-              pm2 restart vaultify-v2  # Restart PM2 app
+              git reset --hard origin/dev 
             else
               echo "No deployment action for this branch."
+              exit 0  # Exit if the branch is neither main nor dev
             fi
+
+
+            git clean -fd
+
+            # Pull the latest code
+            git pull origin ${{ github.ref }}  # Pull latest code (not strictly necessary after reset)
+
+            # Install dependencies
+            npm install  
+
+            # Build the app (if required)
+            npm run build  
+
+            # Restart PM2 app
+            pm2 restart vaultify-v2
