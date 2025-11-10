@@ -174,11 +174,11 @@ export class SeedData {
         
         savedAdmin = await queryRunner.manager.save(adminUser);
 
-        // Create admin profile
+        // Create super admin profile
         const adminProfile = queryRunner.manager.create(UserProfile, {
           user_id: savedAdmin.user_id,
           phone_number: '+2348000000000',
-          role: UserRole.ADMIN,
+          role: UserRole.SUPER_ADMIN,
           apartment_type: ApartmentType.PENTHOUSE,
           house_address: 'Admin Office',
         });
