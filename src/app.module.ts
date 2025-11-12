@@ -29,7 +29,6 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { BankServiceChargeModule } from "./modules/bank-service-charges/bank-service-charges.module";
 import { AlertsModule } from "./modules/alerts/alerts.module";
 import { AnnouncementsModule } from "./modules/announcements/announcements.module";
-
 // Cache Module
 import { CacheModule } from "./modules/cache.module";
 
