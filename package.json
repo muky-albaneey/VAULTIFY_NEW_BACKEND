@@ -22,7 +22,7 @@
     "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
-    "seed:run": "ts-node -r tsconfig-paths/register src/database/run-seeds.ts"
+    "seed:run": "ts-node --transpile-only src/database/run-seeds.ts"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^3.0.1",

@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from '../../entities/user.entity';
-import { UserProfile, UserRole } from '../../entities/user-profile.entity';
+import { UserProfile, UserRole, ApartmentType } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { JwtPayload, RefreshTokenPayload } from '../../common/interfaces/common.interface';
@@ -22,6 +22,11 @@ export interface RegisterDto {
   first_name: string;
   last_name: string;
   estate_id: string;
+  role?: UserRole;
+  phone_number?: string;
+  apartment_type?: ApartmentType;
+  house_address?: string;
+  profile_picture_url?: string;
 }
 
 export interface RegisterSimpleDto {
@@ -29,6 +34,10 @@ export interface RegisterSimpleDto {
   password: string;
   first_name: string;
   last_name: string;
+  phone_number?: string;
+  apartment_type?: ApartmentType;
+  house_address?: string;
+  profile_picture_url?: string;
 }
 
 export interface AuthResponse {
@@ -62,7 +71,18 @@ export class AuthService {
   async register(
     registerDto: RegisterDto
   ): Promise<{ message: string; user_id: string }> {
-    const { email, password, first_name, last_name, estate_id } = registerDto;
+    const { 
+      email, 
+      password, 
+      first_name, 
+      last_name, 
+      estate_id, 
+      role,
+      phone_number,
+      apartment_type,
+      house_address,
+      profile_picture_url,
+    } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -83,7 +103,7 @@ export class AuthService {
     }
 
     // Hash password//
-    const saltRounds = this.configService.get("security.bcryptRounds");
+    const saltRounds = this.configService.get("app.security.bcryptRounds") || 12;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     // Generate 6-digit OTP
@@ -105,10 +125,20 @@ export class AuthService {
     const savedUser = await this.userRepository.save(user);
 
     // Create user profile with estate_id assigned
+    // Use provided role or default to RESIDENCE
+    // Only allow RESIDENCE or SECURITY_PERSONNEL for normal registration
+    const userRole = role && (role === UserRole.RESIDENCE || role === UserRole.SECURITY_PERSONNEL) 
+      ? role 
+      : UserRole.RESIDENCE;
+    
     const userProfile = this.userProfileRepository.create({
       user_id: savedUser.user_id,
       estate_id: estate_id,
-      role: UserRole.RESIDENCE, // Default role, can be changed by admin later
+      role: userRole,
+      phone_number,
+      apartment_type,
+      house_address,
+      profile_picture_url,
     });
     await this.userProfileRepository.save(userProfile);
 
@@ -125,7 +155,16 @@ export class AuthService {
   async registerSimple(
     registerDto: RegisterSimpleDto
   ): Promise<{ message: string; user_id: string }> {
-    const { email, password, first_name, last_name } = registerDto;
+    const { 
+      email, 
+      password, 
+      first_name, 
+      last_name,
+      phone_number,
+      apartment_type,
+      house_address,
+      profile_picture_url,
+    } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -136,7 +175,7 @@ export class AuthService {
     }
 
     // Hash password
-    const saltRounds = this.configService.get("security.bcryptRounds");
+    const saltRounds = this.configService.get("app.security.bcryptRounds") || 12;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     // Generate 6-digit OTP
@@ -162,6 +201,10 @@ export class AuthService {
       user_id: savedUser.user_id,
       role: UserRole.RESIDENCE, // Default role
       estate_id: null, // No estate assigned initially
+      phone_number,
+      apartment_type,
+      house_address,
+      profile_picture_url,
     });
     await this.userProfileRepository.save(userProfile);
 
@@ -215,6 +258,47 @@ export class AuthService {
         "Email verified successfully. Please wait for admin approval to activate your account.",
       user_id: user.user_id,
       status: user.status,
+    };
+  }
+
+  async resendOTP(userIdOrEmail: string): Promise<{ message: string; user_id: string }> {
+    // Find user by ID or email
+    const user = await this.userRepository.findOne({
+      where: [
+        { user_id: userIdOrEmail },
+        { email: userIdOrEmail },
+      ],
+    });
+
+    if (!user) {
+      throw new BadRequestException("User not found");
+    }
+
+    // Check if user is already verified
+    if (user.status === UserStatus.ACTIVE) {
+      throw new BadRequestException("User is already verified. No need to resend OTP.");
+    }
+
+    // Generate new 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date();
+    otpExpires.setMinutes(otpExpires.getMinutes() + 10); // OTP expires in 10 minutes
+
+    // Update user with new OTP
+    user.verification_code = otp;
+    user.verification_code_expires = otpExpires;
+    await this.userRepository.save(user);
+
+    // Send OTP email
+    await this.emailService.sendOTP(
+      user.email,
+      `${user.first_name} ${user.last_name}`,
+      otp
+    );
+
+    return {
+      message: "OTP has been resent to your email. Please check your inbox.",
+      user_id: user.user_id,
     };
   }
 
@@ -354,7 +438,7 @@ export class AuthService {
       throw new BadRequestException("Invalid old password");
     }
 
-    const saltRounds = this.configService.get("security.bcryptRounds");
+    const saltRounds = this.configService.get("app.security.bcryptRounds") || 12;
     const password_hash = await bcrypt.hash(newPassword, saltRounds);
 
     await this.userRepository.update(userId, { password_hash });
@@ -409,7 +493,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const saltRounds = this.configService.get("security.bcryptRounds");
+    const saltRounds = this.configService.get("app.security.bcryptRounds") || 12;
     const password_hash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password and clear OTP
@@ -467,7 +551,7 @@ export class AuthService {
     }
 
     // Hash password
-    const saltRounds = this.configService.get("security.bcryptRounds");
+    const saltRounds = this.configService.get("app.security.bcryptRounds") || 12;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     // Create user with ACTIVE status (no OTP required for temp endpoint)

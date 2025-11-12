@@ -17,7 +17,31 @@ http://localhost:3000
   "password": "password123",
   "first_name": "John",
   "last_name": "Doe",
-  "estate_id": "123e4567-e89b-12d3-a456-426614174000"
+  "estate_id": "123e4567-e89b-12d3-a456-426614174000",
+  "role": "Residence"
+}
+```
+
+**Role Options (Optional):**
+- `"Residence"` (default if not specified)
+- `"Security Personnel"`
+
+**Note:**
+- If `role` is not provided, defaults to `"Residence"`
+- Only `"Residence"` or `"Security Personnel"` can be assigned during registration
+- Admin and Super Admin roles cannot be assigned during registration (must be changed by admin later)
+- Requires OTP verification after registration
+- User status will be `PENDING` until admin activates
+
+**Example - Register as Security Personnel:**
+```json
+{
+  "email": "security@example.com",
+  "password": "password123",
+  "first_name": "Mike",
+  "last_name": "Security",
+  "estate_id": "123e4567-e89b-12d3-a456-426614174000",
+  "role": "Security Personnel"
 }
 ```
 
@@ -649,9 +673,9 @@ Authorization: Bearer {{access_token}}
 
 ---
 
-### 25. Get All Estates
+### 25. Get All Estates (Public - No Auth Required)
 **GET** `/estates?page=1&limit=20`
-**Auth Required: Bearer Token**
+**⚠️ NO AUTHENTICATION REQUIRED - PUBLIC ENDPOINT**
 **No Body Required**
 
 **Query Parameters (optional):**
@@ -660,9 +684,29 @@ Authorization: Bearer {{access_token}}
 
 **Example URLs:**
 ```
-/estates
-/estates?page=1&limit=20
-/estates?page=2&limit=10
+GET http://localhost:3000/estates
+GET http://localhost:3000/estates?page=1&limit=20
+GET http://localhost:3000/estates?page=2&limit=10
+```
+
+**Response Example:**
+```json
+{
+  "data": [
+    {
+      "estate_id": "123e4567-e89b-12d3-a456-426614174000",
+      "name": "Sample Estate",
+      "email": "admin@sampleestate.com",
+      "address": "123 Sample Street, Lagos, Nigeria",
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 1
+}
 ```
 
 ---
@@ -763,7 +807,7 @@ DELETE /estates/123e4567-e89b-12d3-a456-426614174000
 | Endpoint | Method | Auth Required | Role Required | Body Required |
 |----------|--------|---------------|---------------|---------------|
 | Create Estate | POST | Yes | Admin/Super Admin | Yes |
-| Get All Estates | GET | Yes | None | No |
+| Get All Estates | GET | **No (Public)** | None | No |
 | Search Estates | GET | Yes | None | No |
 | Get Estate by ID | GET | Yes | None | No |
 | Update Estate | PUT | Yes | Admin/Super Admin | Yes (optional fields) |
@@ -785,10 +829,9 @@ Authorization: Bearer {{admin_access_token}}
 ```
 **Response:** `{ "estate_id": "...", "name": "...", "email": "...", "address": "...", ... }`
 
-### Step 2: Get All Estates
+### Step 2: Get All Estates (Public - No Auth Required)
 ```
 GET {{base_url}}/estates?page=1&limit=20
-Authorization: Bearer {{access_token}}
 ```
 
 ### Step 3: Search Estates

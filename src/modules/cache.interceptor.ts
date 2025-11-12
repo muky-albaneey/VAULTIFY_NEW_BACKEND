@@ -1,7 +1,7 @@
 import { Injectable, ExecutionContext, CallHandler } from "@nestjs/common";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { Inject } from "@nestjs/common";
-import { Observable } from "rxjs";
+import { Observable, of, tap } from "rxjs";
 
 @Injectable()
 export class CacheCustomInterceptor extends CacheInterceptor {
@@ -31,16 +31,14 @@ export class CacheCustomInterceptor extends CacheInterceptor {
     const cachedResponse = await this.cacheManager.get(key);
 
     if (cachedResponse) {
-      return cachedResponse;
+      return of(cachedResponse);
     }
 
-    return next
-      .handle()
-      .toPromise()
-      .then(async (response) => {
+    return next.handle().pipe(
+      tap(async (response) => {
         await this.cacheManager.set(key, response, { ttl: 3600 });
-        return response;
-      });
+      })
+    );
   }
 
   private getCacheKey(context: ExecutionContext): string {

@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { EstatesService, CreateEstateDto, UpdateEstateDto } from './estates.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/custom.decorators';
+import { Roles, Public } from '../../common/decorators/custom.decorators';
 import { UserRole } from '../../entities/user-profile.entity';
 import { z } from 'zod';
 
@@ -42,15 +42,18 @@ export class EstatesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all estates' })
+  @Public()
+  @ApiOperation({ summary: 'Get all estates (Public - No authentication required)' })
   @ApiQuery({ name: 'page', description: 'Page number', required: false })
   @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
   @ApiResponse({ status: 200, description: 'Estates retrieved successfully' })
   async getAllEstates(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.estatesService.getAllEstates(page, limit);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.estatesService.getAllEstates(pageNum, limitNum);
   }
 
   @Get('search')

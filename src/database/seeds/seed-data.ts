@@ -158,17 +158,17 @@ export class SeedData {
 
       // Seed Admin User
       let savedAdmin = await queryRunner.manager.findOne(User, {
-        where: { email: 'admin@vaultify.com' },
+        where: { email: 'mukyalbani1@gmail.com' },
       });
 
       if (!savedAdmin) {
         const hashedPassword = await bcrypt.hash('admin123', 12);
         
         const adminUser = queryRunner.manager.create(User, {
-          email: 'admin@vaultify.com',
+          email: 'mukyalbani1@gmail.com',
           password_hash: hashedPassword,
           first_name: 'Admin',
-          last_name: 'User',
+          last_name: 'User', 
           status: UserStatus.ACTIVE,
         });
         
@@ -196,7 +196,7 @@ export class SeedData {
       if (estate && savedAdmin) {
         const residents = [
           {
-            email: 'john.doe@sampleestate.com',
+            email: 'omomcdirector1@gmail.com',
             first_name: 'John',
             last_name: 'Doe',
             phone: '+2348012345678',
@@ -214,7 +214,7 @@ export class SeedData {
             house_address: 'Block B, Flat 205',
           },
           {
-            email: 'security@sampleestate.com',
+            email: '2020.garba.tahir@lbis.org',
             first_name: 'Mike',
             last_name: 'Security',
             phone: '+2348012345680',
@@ -225,35 +225,42 @@ export class SeedData {
         ];
 
         for (const residentData of residents) {
-          const hashedPassword = await bcrypt.hash('password123', 12);
-          
-          const resident = queryRunner.manager.create(User, {
-            email: residentData.email,
-            password_hash: hashedPassword,
-            first_name: residentData.first_name,
-            last_name: residentData.last_name,
-            status: UserStatus.ACTIVE,
+          // Check if user already exists
+          const existingResident = await queryRunner.manager.findOne(User, {
+            where: { email: residentData.email },
           });
-          
-          const savedResident = await queryRunner.manager.save(resident);
 
-          // Create resident profile
-          const residentProfile = queryRunner.manager.create(UserProfile, {
-            user_id: savedResident.user_id,
-            phone_number: residentData.phone,
-            role: residentData.role,
-            apartment_type: residentData.apartment_type,
-            house_address: residentData.house_address,
-            estate_id: estate.estate_id,
-          });
-          await queryRunner.manager.save(residentProfile);
+          if (!existingResident) {
+            const hashedPassword = await bcrypt.hash('password123', 12);
+            
+            const resident = queryRunner.manager.create(User, {
+              email: residentData.email,
+              password_hash: hashedPassword,
+              first_name: residentData.first_name,
+              last_name: residentData.last_name,
+              status: UserStatus.ACTIVE,
+            });
+            
+            const savedResident = await queryRunner.manager.save(resident);
 
-          // Create resident wallet
-          const residentWallet = queryRunner.manager.create(Wallet, {
-            user_id: savedResident.user_id,
-            available_balance: 10000, // Give residents some initial balance
-          });
-          await queryRunner.manager.save(residentWallet);
+            // Create resident profile
+            const residentProfile = queryRunner.manager.create(UserProfile, {
+              user_id: savedResident.user_id,
+              phone_number: residentData.phone,
+              role: residentData.role,
+              apartment_type: residentData.apartment_type,
+              house_address: residentData.house_address,
+              estate_id: estate.estate_id,
+            });
+            await queryRunner.manager.save(residentProfile);
+
+            // Create resident wallet
+            const residentWallet = queryRunner.manager.create(Wallet, {
+              user_id: savedResident.user_id,
+              available_balance: 10000, // Give residents some initial balance
+            });
+            await queryRunner.manager.save(residentWallet);
+          }
         }
       }
 
@@ -267,10 +274,11 @@ export class SeedData {
           where: { first_name: 'Sample', last_name: 'Electrician' },
         });
 
-        if (!existingProvider) {
+        if (!existingProvider && estate) {
           const provider = queryRunner.manager.create(Provider, {
             service_id: electricianService.service_id,
             admin_user_id: savedAdmin.user_id,
+            estate_id: estate.estate_id,
             first_name: 'Sample',
             last_name: 'Electrician',
             phone: '+2348012345681',
@@ -305,7 +313,7 @@ export class SeedData {
         where: { name: 'PHCN' },
       });
 
-      if (phcnProvider) {
+      if (phcnProvider && estate) {
         const users = await queryRunner.manager.find(User, {
           where: { status: UserStatus.ACTIVE },
           take: 3,
@@ -319,6 +327,7 @@ export class SeedData {
           if (!existingAccount) {
             const utilityAccount = queryRunner.manager.create(UtilityAccount, {
               user_id: user.user_id,
+              estate_id: estate.estate_id,
               utility_provider_id: phcnProvider.utility_provider_id,
               account_number: `PHCN${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
               address: 'Sample Estate, Lagos',
@@ -369,7 +378,7 @@ export class SeedData {
 
       // Seed Sample Alerts
       const adminUser = await queryRunner.manager.findOne(User, {
-        where: { email: 'admin@vaultify.com' },
+        where: { email: 'mukyalbani1@gmail.com' },
       });
 
       if (adminUser) {
@@ -430,11 +439,11 @@ export class SeedData {
         });
 
         if (!existingCode) {
+          // AccessCode.code is a UUID primary key, so we let it auto-generate
           const accessCode = queryRunner.manager.create(AccessCode, {
-            code: `VISIT${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
             creator_user_id: user.user_id,
             visitor_name: 'Sample Visitor',
-            visitor_email: 'visitor@example.com',
+            visitor_email: 'omcprincipal1@gmail.com',
             visitor_phone: '+2348012345682',
             valid_from: new Date(),
             valid_to: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now

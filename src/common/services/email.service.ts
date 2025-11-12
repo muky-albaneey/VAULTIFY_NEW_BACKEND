@@ -139,10 +139,25 @@ export class EmailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('OTP email sent successfully:', info.messageId);
+      console.log('✅ OTP email sent successfully:', info.messageId);
+      console.log('📧 Email sent to:', email);
     } catch (error) {
-      console.error('Error sending OTP email:', error.message);
-      console.error('Email details:', { to: email, subject: mailOptions.subject });
+      console.error('❌ Error sending OTP email:', error.message);
+      console.error('📧 Email details:', { to: email, subject: mailOptions.subject });
+      
+      // Provide helpful error messages for common issues
+      if (error.message.includes('Application-specific password required') || 
+          error.message.includes('Invalid login')) {
+        console.error('⚠️  SMTP Authentication Error:');
+        console.error('   → Gmail requires an App Password (not your regular password)');
+        console.error('   → Generate one at: https://myaccount.google.com/apppasswords');
+        console.error('   → Update SMTP_PASS in your .env file with the 16-digit App Password');
+      } else if (error.message.includes('Connection timeout') || error.message.includes('ECONNREFUSED')) {
+        console.error('⚠️  SMTP Connection Error:');
+        console.error('   → Check your internet connection');
+        console.error('   → Verify SMTP_HOST and SMTP_PORT in .env file');
+      }
+      
       // Don't throw error to avoid breaking the registration flow
       // In production, you might want to log this to a monitoring service
     }
@@ -244,10 +259,21 @@ export class EmailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('Password reset OTP email sent successfully:', info.messageId);
+      console.log('✅ Password reset OTP email sent successfully:', info.messageId);
+      console.log('📧 Email sent to:', email);
     } catch (error) {
-      console.error('Error sending password reset OTP email:', error.message);
-      console.error('Email details:', { to: email, subject: mailOptions.subject });
+      console.error('❌ Error sending password reset OTP email:', error.message);
+      console.error('📧 Email details:', { to: email, subject: mailOptions.subject });
+      
+      // Provide helpful error messages for common issues
+      if (error.message.includes('Application-specific password required') || 
+          error.message.includes('Invalid login')) {
+        console.error('⚠️  SMTP Authentication Error:');
+        console.error('   → Gmail requires an App Password (not your regular password)');
+        console.error('   → Generate one at: https://myaccount.google.com/apppasswords');
+        console.error('   → Update SMTP_PASS in your .env file with the 16-digit App Password');
+      }
+      
       // Don't throw error to avoid breaking the flow
     }
   }

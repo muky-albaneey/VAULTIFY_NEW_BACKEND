@@ -1,10 +1,10 @@
-import { Controller, Post, Put, Body, UseGuards, HttpCode, HttpStatus, Param } from '@nestjs/common';
+import { Controller, Post, Put, Body, UseGuards, HttpCode, HttpStatus, Param, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService, LoginDto, RegisterDto, RegisterSimpleDto } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './auth.guards';
 import { Public } from '../../common/decorators/custom.decorators';
 import { CurrentUserId } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '../../entities/user-profile.entity';
+import { UserRole, ApartmentType } from '../../entities/user-profile.entity';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/custom.decorators';
 import { z } from 'zod';
@@ -21,6 +21,11 @@ const RegisterSchema = z.object({
   first_name: z.string().min(1),
   last_name: z.string().min(1),
   estate_id: z.string().uuid('Estate ID must be a valid UUID'),
+  role: z.nativeEnum(UserRole).optional().default(UserRole.RESIDENCE),
+  phone_number: z.string().optional(),
+  apartment_type: z.nativeEnum(ApartmentType).optional(),
+  house_address: z.string().optional(),
+  profile_picture_url: z.string().url().optional(),
 });
 
 const RefreshTokenSchema = z.object({
@@ -52,6 +57,10 @@ const RegisterSimpleSchema = z.object({
   password: z.string().min(6),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
+  phone_number: z.string().optional(),
+  apartment_type: z.nativeEnum(ApartmentType).optional(),
+  house_address: z.string().optional(),
+  profile_picture_url: z.string().url().optional(),
 });
 
 const ChangeRoleSchema = z.object({
@@ -66,18 +75,22 @@ export class AuthController {
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user with estate and send OTP' })
+  @ApiOperation({ summary: 'Register a new user with estate and send OTP. Role can be specified (Residence or Security Personnel). Profile fields (phone_number, apartment_type, house_address, profile_picture_url) can be included.' })
   @ApiResponse({ status: 201, description: 'User registered successfully. OTP sent to email.' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async register(@Body() registerDto: RegisterDto) {
     const validatedData = RegisterSchema.parse(registerDto) as RegisterDto;
+    // Ensure only RESIDENCE or SECURITY_PERSONNEL can be registered (not Admin/Super Admin)
+    if (validatedData.role && validatedData.role !== UserRole.RESIDENCE && validatedData.role !== UserRole.SECURITY_PERSONNEL) {
+      throw new BadRequestException('Only Residence or Security Personnel roles can be assigned during registration');
+    }
     return this.authService.register(validatedData);
   }
 
   @Post('register-simple')
   @Public()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user without estate (becomes Residence by default) and send OTP' })
+  @ApiOperation({ summary: 'Register a new user without estate (becomes Residence by default) and send OTP. Profile fields (phone_number, apartment_type, house_address, profile_picture_url) can be included.' })
   @ApiResponse({ status: 201, description: 'User registered successfully. OTP sent to email.' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async registerSimple(@Body() registerDto: RegisterSimpleDto) {
@@ -95,6 +108,30 @@ export class AuthController {
   async verifyOTP(@Body() body: { user_id: string; otp: string }) {
     const validatedData = VerifyOTPSchema.parse(body);
     return this.authService.verifyOTP(validatedData.user_id, validatedData.otp);
+  }
+
+  @Post('resend-otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend OTP verification code to user email' })
+  @ApiResponse({ status: 200, description: 'OTP resent successfully' })
+  @ApiResponse({ status: 400, description: 'User not found or already verified' })
+  async resendOTP(@Body() body: { user_id?: string; email?: string }) {
+    const ResendOTPSchema = z.object({
+      user_id: z.string().uuid().optional(),
+      email: z.string().email().optional(),
+    }).refine((data) => data.user_id || data.email, {
+      message: 'Either user_id or email must be provided',
+    });
+    
+    const validatedData = ResendOTPSchema.parse(body);
+    const identifier = validatedData.user_id || validatedData.email;
+    
+    if (!identifier) {
+      throw new BadRequestException('Either user_id or email must be provided');
+    }
+    
+    return this.authService.resendOTP(identifier);
   }
 
   @Post('login')
