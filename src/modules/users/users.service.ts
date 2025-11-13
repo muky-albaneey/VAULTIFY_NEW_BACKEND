@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcryptjs';
 import { User, UserStatus } from '../../entities/user.entity';
 import { UserProfile, UserRole, ApartmentType } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
 import { DeviceToken, Platform } from '../../entities/device-token.entity';
+import { Wallet } from '../../entities/wallet.entity';
 
 export interface UpdateProfileDto {
   phone_number?: string;
@@ -19,6 +22,19 @@ export interface RegisterDeviceDto {
   device_id?: string;
 }
 
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  role: UserRole;
+  estate_id?: string;
+  phone_number?: string;
+  apartment_type?: ApartmentType;
+  house_address?: string;
+  profile_picture_url?: string;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -30,6 +46,9 @@ export class UsersService {
     private estateRepository: Repository<Estate>,
     @InjectRepository(DeviceToken)
     private deviceTokenRepository: Repository<DeviceToken>,
+    @InjectRepository(Wallet)
+    private walletRepository: Repository<Wallet>,
+    private configService: ConfigService,
   ) {}
 
   async getMe(userId: string) {
@@ -340,6 +359,101 @@ export class UsersService {
       user_id: userId,
       role: UserRole.SUPER_ADMIN,
       message: 'User promoted to Super Admin',
+    };
+  }
+
+  async createUser(createUserDto: CreateUserDto) {
+    const {
+      email,
+      password,
+      first_name,
+      last_name,
+      role,
+      estate_id,
+      phone_number,
+      apartment_type,
+      house_address,
+      profile_picture_url,
+    } = createUserDto;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
+    if (existingUser) {
+      throw new BadRequestException('User with this email already exists');
+    }
+
+    // Validate estate_id based on role
+    if (role === UserRole.ADMIN) {
+      if (!estate_id) {
+        throw new BadRequestException('Estate ID is required for Estate Admin role. Estate Admins must be assigned to a specific estate.');
+      }
+      // Verify estate exists
+      const estate = await this.estateRepository.findOne({
+        where: { estate_id },
+      });
+      if (!estate) {
+        throw new NotFoundException('Estate not found');
+      }
+    } else if (role === UserRole.SUPER_ADMIN) {
+      // Super Admin doesn't need estate_id
+      if (estate_id) {
+        throw new BadRequestException('Super Admin cannot be assigned to an estate');
+      }
+    } else if (estate_id) {
+      // For other roles, verify estate exists if provided
+      const estate = await this.estateRepository.findOne({
+        where: { estate_id },
+      });
+      if (!estate) {
+        throw new NotFoundException('Estate not found');
+      }
+    }
+
+    // Hash password
+    const saltRounds = this.configService.get('app.security.bcryptRounds') || 12;
+    const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Create user with ACTIVE status (no OTP needed for admin-created users)
+    const user = this.userRepository.create({
+      email,
+      password_hash,
+      first_name,
+      last_name,
+      status: UserStatus.ACTIVE,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Create user profile with specified role
+    const userProfile = this.userProfileRepository.create({
+      user_id: savedUser.user_id,
+      role,
+      estate_id: role === UserRole.SUPER_ADMIN ? null : estate_id || null,
+      phone_number,
+      apartment_type,
+      house_address,
+      profile_picture_url,
+    });
+    await this.userProfileRepository.save(userProfile);
+
+    // Create wallet
+    const wallet = this.walletRepository.create({
+      user_id: savedUser.user_id,
+      available_balance: 0,
+    });
+    await this.walletRepository.save(wallet);
+
+    return {
+      user_id: savedUser.user_id,
+      email: savedUser.email,
+      first_name: savedUser.first_name,
+      last_name: savedUser.last_name,
+      status: savedUser.status,
+      role,
+      estate_id: role === UserRole.SUPER_ADMIN ? null : estate_id || null,
+      message: 'User created successfully',
     };
   }
 }

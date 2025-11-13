@@ -8,10 +8,11 @@ import { UserProfile } from '../../entities/user-profile.entity';
 import { Estate } from '../../entities/estate.entity';
 import { DeviceToken } from '../../entities/device-token.entity';
 import { BankServiceCharge } from '../../entities/bank-service-charge.entity';
+import { Wallet } from '../../entities/wallet.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserProfile, Estate, DeviceToken, BankServiceCharge]),
+    TypeOrmModule.forFeature([User, UserProfile, Estate, DeviceToken, BankServiceCharge, Wallet]),
   ],
   controllers: [UsersController],
   providers: [UsersService],

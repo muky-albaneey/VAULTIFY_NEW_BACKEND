@@ -1,6 +1,6 @@
 import { Controller, Get, Put, Post, Delete, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { UsersService, UpdateProfileDto, RegisterDeviceDto } from './users.service';
+import { UsersService, UpdateProfileDto, RegisterDeviceDto, CreateUserDto } from './users.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/custom.decorators';
@@ -26,6 +26,19 @@ const RegisterDeviceSchema = z.object({
 const SearchUsersSchema = z.object({
   query: z.string().min(1),
   estate_id: z.string().uuid().optional(),
+});
+
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  first_name: z.string().min(1),
+  last_name: z.string().min(1),
+  role: z.enum(['Residence', 'Security Personnel', 'Admin', 'Super Admin']),
+  estate_id: z.string().uuid().optional(),
+  phone_number: z.string().optional(),
+  apartment_type: z.enum(['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom', 'Penthouse', 'Duplex']).optional(),
+  house_address: z.string().optional(),
+  profile_picture_url: z.string().url().optional(),
 });
 
 @ApiTags('Users')
@@ -92,6 +105,21 @@ export class UsersController {
   ) {
     const validatedData = SearchUsersSchema.parse({ query, estate_id: estateId });
     return this.usersService.searchUsers(validatedData.query, validatedData.estate_id);
+  }
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ 
+    summary: 'Create user with any role (Super Admin only)',
+    description: 'Creates a new user with the specified role. Note: Admin role requires estate_id as Estate Admins must be assigned to a specific estate.'
+  })
+  @ApiResponse({ status: 201, description: 'User created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input, user already exists, or estate_id missing for Admin role' })
+  @ApiResponse({ status: 404, description: 'Estate not found' })
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    const validatedData = CreateUserSchema.parse(createUserDto) as CreateUserDto;
+    return this.usersService.createUser(validatedData);
   }
 
   @Get(':id')

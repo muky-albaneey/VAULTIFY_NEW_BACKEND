@@ -216,9 +216,105 @@ Content-Type: application/json
 ```
 
 **What This Does:**
-- Changes user role to `Admin`
+- Changes user role to `Admin` (Estate Admin)
 - Assigns them to the specified estate
-- Gives them admin privileges for that estate
+- Gives them admin privileges for that estate only
+- **Important:** Estate Admins are admins for a specific estate only, not system-wide
+
+**Estate Admin Capabilities:**
+- Manage users within their assigned estate
+- Activate/suspend users in their estate
+- View and manage estate-specific data
+- Cannot access other estates
+
+---
+
+## Creating Users with Any Role (Super Admin Only)
+
+### Endpoint: Create User
+
+Super Admins can create users directly with any role, including Estate Admins. This is more efficient than creating a user and then promoting them.
+
+```bash
+POST /users
+Authorization: Bearer {super_admin_token}
+Content-Type: application/json
+
+{
+  "email": "estateadmin@example.com",
+  "password": "securepassword123",
+  "first_name": "John",
+  "last_name": "Admin",
+  "role": "Admin",
+  "estate_id": "estate-uuid",
+  "phone_number": "+2348012345678",
+  "apartment_type": "2-Bedroom",
+  "house_address": "Admin Office",
+  "profile_picture_url": "https://example.com/photo.jpg"
+}
+```
+
+**Available Roles:**
+- `Residence` - Regular resident (estate_id optional)
+- `Security Personnel` - Security staff (estate_id optional)
+- `Admin` - **Estate Admin** (estate_id **REQUIRED** - Estate Admins must be assigned to a specific estate)
+- `Super Admin` - System administrator (estate_id not allowed)
+
+**Important Notes:**
+- **For Admin role:** `estate_id` is **REQUIRED**. Estate Admins must be assigned to a specific estate.
+- **For Super Admin role:** `estate_id` is **NOT ALLOWED**. Super Admins are not tied to any estate.
+- **For other roles:** `estate_id` is optional but recommended.
+- User is created with `ACTIVE` status (no OTP verification needed)
+- Wallet is automatically created for the user
+
+**Response:**
+```json
+{
+  "user_id": "user-uuid",
+  "email": "estateadmin@example.com",
+  "first_name": "John",
+  "last_name": "Admin",
+  "status": "active",
+  "role": "Admin",
+  "estate_id": "estate-uuid",
+  "message": "User created successfully"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: If estate_id is missing for Admin role
+- `400 Bad Request`: If estate_id is provided for Super Admin role
+- `400 Bad Request`: If user with email already exists
+- `404 Not Found`: If estate_id doesn't exist
+
+**Example: Creating an Estate Admin**
+```bash
+POST /users
+Authorization: Bearer {super_admin_token}
+{
+  "email": "admin@greenview.com",
+  "password": "admin123",
+  "first_name": "Jane",
+  "last_name": "EstateAdmin",
+  "role": "Admin",
+  "estate_id": "greenview-estate-uuid",
+  "phone_number": "+2348012345678"
+}
+```
+
+**Example: Creating a Super Admin**
+```bash
+POST /users
+Authorization: Bearer {super_admin_token}
+{
+  "email": "superadmin@vaultify.com",
+  "password": "superadmin123",
+  "first_name": "Super",
+  "last_name": "Admin",
+  "role": "Super Admin"
+  // Note: No estate_id for Super Admin
+}
+```
 
 ---
 
