@@ -216,6 +216,74 @@ export class UsersService {
     };
   }
 
+  async getEstateUsersByRole(
+    estateId: string,
+    role: UserRole.RESIDENCE | UserRole.SECURITY_PERSONNEL,
+    requestingUserId?: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    const offset = (page - 1) * limit;
+
+    // Validate role
+    if (role !== UserRole.RESIDENCE && role !== UserRole.SECURITY_PERSONNEL) {
+      throw new BadRequestException('Role must be either "Residence" or "Security Personnel"');
+    }
+
+    // Verify estate exists
+    const estate = await this.estateRepository.findOne({
+      where: { estate_id: estateId },
+    });
+
+    if (!estate) {
+      throw new NotFoundException('Estate not found');
+    }
+
+    // If requesting user is provided, check if they're an estate admin and scope to their estate
+    if (requestingUserId) {
+      const requestingUserProfile = await this.userProfileRepository.findOne({
+        where: { user_id: requestingUserId },
+      });
+
+      // If user is an estate admin (not super admin), ensure they can only access their own estate
+      if (requestingUserProfile?.role === UserRole.ADMIN && requestingUserProfile.estate_id !== estateId) {
+        throw new BadRequestException('Estate Admin can only access users from their own estate');
+      }
+    }
+
+    const [users, total] = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.bankServiceCharges', 'bankServiceCharge')
+      .leftJoinAndSelect('bankServiceCharge.files', 'files')
+      .where('profile.estate_id = :estateId', { estateId })
+      .andWhere('profile.role = :role', { role })
+      .andWhere('user.status = :status', { status: UserStatus.ACTIVE })
+      .orderBy('user.first_name', 'ASC')
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
+
+    // Transform users to include single service charge (since each user has only one)
+    const transformedUsers = users.map(user => {
+      const { bankServiceCharges, ...userWithoutBSC } = user;
+      return {
+        ...userWithoutBSC,
+        service_charge: bankServiceCharges?.[0] || null,
+      };
+    });
+
+    return {
+      data: transformedUsers,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      role,
+      estate_id: estateId,
+    };
+  }
+
   async assignEstateToUser(
     userId: string,
     estateId: string,

@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { BankServiceCharge, PaymentFrequency } from '../../entities/bank-service-charge.entity';
 import { BankServiceChargeFile } from '../../entities/bank-service-charge-file.entity';
 import { User } from '../../entities/user.entity';
+import { S3UploadService } from '../../common/services/s3-upload.service';
 
 export interface CreateBankServiceChargeDto {
   service_charge: number;
@@ -23,9 +24,6 @@ export interface UpdateBankServiceChargeDto {
   account_number?: string;
 }
 
-export interface UploadServiceChargeFileDto {
-  file_url: string;
-}
 
 export interface AdminUpdateServiceChargeDto {
   service_charge?: number;
@@ -48,6 +46,7 @@ export class BankServiceChargeService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private dataSource: DataSource,
+    private s3UploadService: S3UploadService,
   ) {}
 
   async createBankServiceCharge(userId: string, createData: CreateBankServiceChargeDto) {
@@ -123,7 +122,7 @@ export class BankServiceChargeService {
     return await this.bankServiceChargeRepository.save(bankServiceCharge);
   }
 
-  async uploadServiceChargeFile(userId: string, bscId: string, uploadData: UploadServiceChargeFileDto) {
+  async uploadServiceChargeFile(userId: string, bscId: string, file: Express.Multer.File) {
     const bankServiceCharge = await this.bankServiceChargeRepository.findOne({
       where: { bsc_id: bscId, user_id: userId },
     });
@@ -132,13 +131,17 @@ export class BankServiceChargeService {
       throw new NotFoundException('Bank service charge record not found');
     }
 
-    const file = this.bankServiceChargeFileRepository.create({
+    // Upload file to S3
+    const uploadResult = await this.s3UploadService.uploadFile(file, 'service-charges');
+
+    // Save file record to database
+    const fileRecord = this.bankServiceChargeFileRepository.create({
       bsc_id: bscId,
-      file_url: uploadData.file_url,
+      file_url: uploadResult.url,
       uploaded_at: new Date(),
     });
 
-    return await this.bankServiceChargeFileRepository.save(file);
+    return await this.bankServiceChargeFileRepository.save(fileRecord);
   }
 
   async getServiceChargeFiles(userId: string, bscId: string) {
@@ -173,6 +176,22 @@ export class BankServiceChargeService {
       throw new NotFoundException('File not found');
     }
 
+    // Extract S3 key from URL and delete from S3
+    // Linode Object Storage URL format: https://endpoint/bucket-name/key
+    try {
+      const url = new URL(file.file_url);
+      const pathParts = url.pathname.split('/').filter(part => part.length > 0);
+      // Remove bucket name (first part) and join the rest as the key
+      if (pathParts.length > 1) {
+        const key = pathParts.slice(1).join('/');
+        await this.s3UploadService.deleteFile(key);
+      }
+    } catch (error) {
+      // Log error but don't fail if S3 deletion fails
+      console.error('Failed to delete file from S3:', error);
+    }
+
+    // Delete from database
     await this.bankServiceChargeFileRepository.remove(file);
     return { message: 'File deleted successfully' };
   }

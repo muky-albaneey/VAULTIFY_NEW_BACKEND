@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { BankServiceChargeService, CreateBankServiceChargeDto, UpdateBankServiceChargeDto, UploadServiceChargeFileDto, AdminUpdateServiceChargeDto } from './bank-service-charges.service';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { BankServiceChargeService, CreateBankServiceChargeDto, UpdateBankServiceChargeDto, AdminUpdateServiceChargeDto } from './bank-service-charges.service';
 import { JwtAuthGuard } from '../auth/auth.guards';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/custom.decorators';
@@ -27,9 +29,6 @@ const UpdateBankServiceChargeSchema = z.object({
   account_number: z.string().min(1).optional(),
 });
 
-const UploadServiceChargeFileSchema = z.object({
-  file_url: z.string().url(),
-});
 
 const AdminUpdateServiceChargeSchema = z.object({
   service_charge: z.number().positive().optional(),
@@ -88,19 +87,45 @@ export class BankServiceChargeController {
   }
 
   @Post('me/files')
-  @ApiOperation({ summary: 'Upload service charge file' })
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+  }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ 
+    summary: 'Upload service charge receipt file',
+    description: 'Upload a payment receipt file (PDF, JPG, PNG, WEBP). The file will be uploaded to Linode S3 bucket and the URL will be saved.'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Receipt file (PDF, JPG, PNG, WEBP, max 10MB)',
+        },
+      },
+      required: ['file'],
+    },
+  })
   @ApiResponse({ status: 201, description: 'File uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file. File must be PDF, JPG, PNG, or WEBP and max 10MB.' })
   @ApiResponse({ status: 404, description: 'Bank service charge record not found' })
   async uploadServiceChargeFile(
     @CurrentUserId() userId: string,
-    @Body() uploadData: UploadServiceChargeFileDto,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    const validatedData = UploadServiceChargeFileSchema.parse(uploadData) as UploadServiceChargeFileDto;
+    if (!file) {
+      throw new BadRequestException('File is required. Please upload a file (PDF, JPG, PNG, or WEBP).');
+    }
     
     // Get user's bank service charge record
     const bsc = await this.bankServiceChargeService.getUserBankServiceCharge(userId);
     
-    return this.bankServiceChargeService.uploadServiceChargeFile(userId, bsc.bsc_id, validatedData);
+    return this.bankServiceChargeService.uploadServiceChargeFile(userId, bsc.bsc_id, file);
   }
 
   @Get('me/files')

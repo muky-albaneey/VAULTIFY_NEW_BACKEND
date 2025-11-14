@@ -175,6 +175,39 @@ export class UsersController {
     return this.usersService.getUsersByEstate(estateId, page, limit);
   }
 
+  @Get('estate/:estateId/role/:role')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL, UserRole.SUPER_ADMIN)
+  @ApiOperation({ 
+    summary: 'Get estate users by role (Admin/Security/Super Admin only)',
+    description: 'Get users filtered by estate and role. Only "Residence" and "Security Personnel" roles are supported. Estate Admins can only access users from their own estate.'
+  })
+  @ApiQuery({ name: 'page', description: 'Page number', required: false })
+  @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
+  @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid role or estate access denied' })
+  @ApiResponse({ status: 404, description: 'Estate not found' })
+  async getEstateUsersByRole(
+    @CurrentUserId() userId: string,
+    @Param('estateId') estateId: string,
+    @Param('role') role: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ) {
+    // Validate role parameter
+    if (role !== UserRole.RESIDENCE && role !== UserRole.SECURITY_PERSONNEL) {
+      throw new BadRequestException('Role must be either "Residence" or "Security Personnel"');
+    }
+
+    return this.usersService.getEstateUsersByRole(
+      estateId,
+      role as UserRole.RESIDENCE | UserRole.SECURITY_PERSONNEL,
+      userId,
+      page,
+      limit,
+    );
+  }
+
   @Put(':id/assign-estate')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
