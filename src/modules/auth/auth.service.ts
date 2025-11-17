@@ -344,34 +344,48 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string): Promise<{ access_token: string }> {
+    let payload: RefreshTokenPayload;
+    
     try {
-      const payload = this.jwtService.verify(refreshToken, {
+      payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get("app.jwt.refreshSecret"),
       }) as RefreshTokenPayload;
-
-      const user = await this.userRepository.findOne({
-        where: { user_id: payload.sub },
-        relations: ["profile"],
-      });
-      if (!user || user.status === UserStatus.SUSPENDED) {
-        throw new UnauthorizedException("Invalid refresh token");
-      }
-
-      const jwtPayload: JwtPayload = {
-        sub: user.user_id,
-        email: user.email,
-        role: user.profile?.role || "Residence",
-      };
-
-      const access_token = this.jwtService.sign(jwtPayload, {
-        secret: this.configService.get("app.jwt.secret"),
-        expiresIn: this.configService.get("app.jwt.expiresIn"),
-      });
-
-      return { access_token };
     } catch (error) {
-      throw new UnauthorizedException("Invalid refresh token");
+      if (error.name === 'TokenExpiredError') {
+        throw new UnauthorizedException("Refresh token has expired. Please login again.");
+      } else if (error.name === 'JsonWebTokenError') {
+        throw new UnauthorizedException("Invalid refresh token format.");
+      } else if (error.name === 'NotBeforeError') {
+        throw new UnauthorizedException("Refresh token is not active yet.");
+      }
+      throw new UnauthorizedException("Invalid refresh token. Please login again.");
     }
+
+    const user = await this.userRepository.findOne({
+      where: { user_id: payload.sub },
+      relations: ["profile"],
+    });
+    
+    if (!user) {
+      throw new UnauthorizedException("User associated with refresh token not found.");
+    }
+    
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException("User account is suspended. Please contact support.");
+    }
+
+    const jwtPayload: JwtPayload = {
+      sub: user.user_id,
+      email: user.email,
+      role: user.profile?.role || "Residence",
+    };
+
+    const access_token = this.jwtService.sign(jwtPayload, {
+      secret: this.configService.get("app.jwt.secret"),
+      expiresIn: this.configService.get("app.jwt.expiresIn"),
+    });
+
+    return { access_token };
   }
 
   async validateUser(payload: JwtPayload): Promise<any> {

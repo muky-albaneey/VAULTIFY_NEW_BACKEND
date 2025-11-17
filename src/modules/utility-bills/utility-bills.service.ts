@@ -348,7 +348,11 @@ export class UtilityBillsService {
         total_vendors: lencoVendors.length,
       };
     } catch (error) {
-      throw new BadRequestException('Failed to sync Lenco vendors');
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to sync Lenco vendors: ${errorMessage}`);
     }
   }
 
@@ -356,7 +360,11 @@ export class UtilityBillsService {
     try {
       return await this.lencoService.getProducts(vendorId);
     } catch (error) {
-      throw new BadRequestException('Failed to fetch Lenco products');
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to fetch Lenco products: ${errorMessage}`);
     }
   }
 
@@ -367,7 +375,11 @@ export class UtilityBillsService {
       const validation = await this.lencoService.validateCustomer(product_id, customer_id);
       return validation;
     } catch (error) {
-      throw new BadRequestException('Failed to validate customer details');
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to validate customer details: ${errorMessage}`);
     }
   }
 
@@ -449,7 +461,11 @@ export class UtilityBillsService {
         message: 'Lenco payment initiated successfully',
       };
     } catch (error) {
-      throw new BadRequestException(`Failed to initiate Lenco payment: ${error.message}`);
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to initiate Lenco payment: ${errorMessage}`);
     }
   }
 
@@ -504,7 +520,11 @@ export class UtilityBillsService {
         status: payment.status,
       };
     } catch (error) {
-      throw new BadRequestException(`Failed to process Lenco webhook: ${error.message}`);
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to process Lenco webhook: ${errorMessage}`);
     }
   }
 
@@ -512,7 +532,11 @@ export class UtilityBillsService {
     try {
       return await this.lencoService.getBillPaymentStatus(transactionId);
     } catch (error) {
-      throw new BadRequestException('Failed to fetch Lenco payment status');
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to fetch Lenco payment status: ${errorMessage}`);
     }
   }
 
@@ -520,7 +544,11 @@ export class UtilityBillsService {
     try {
       return await this.lencoService.getBillPaymentHistory(page, limit);
     } catch (error) {
-      throw new BadRequestException('Failed to fetch Lenco payment history');
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to fetch Lenco payment history: ${errorMessage}`);
     }
   }
 }

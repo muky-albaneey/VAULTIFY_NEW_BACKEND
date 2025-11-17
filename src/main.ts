@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { ConfigService } from "@nestjs/config";
 import { CacheCustomInterceptor } from "./modules/cache.interceptor";
+import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,12 +18,18 @@ async function bootstrap() {
     allowedHeaders: ["Content-Type", "Authorization", "X-Idempotency-Key"],
   });
 
+  // Global exception filter for consistent error responses
+  app.useGlobalFilters(new AllExceptionsFilter());
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     })
   );
 
