@@ -53,14 +53,31 @@ export class AccessCodesService {
 
     const savedAccessCode = await this.accessCodeRepository.save(accessCode);
 
-    // Get creator's profile to include house address
-    const creatorProfile = await this.userProfileRepository.findOne({
+    // Get creator's full user and profile information
+    const creator = await this.userRepository.findOne({
       where: { user_id: userId },
+      relations: ['profile'],
     });
+
+    const creatorInfo = creator ? {
+      user_id: creator.user_id,
+      email: creator.email,
+      first_name: creator.first_name,
+      last_name: creator.last_name,
+      status: creator.status,
+      profile: creator.profile ? {
+        phone_number: creator.profile.phone_number,
+        role: creator.profile.role,
+        apartment_type: creator.profile.apartment_type,
+        house_address: creator.profile.house_address,
+        estate_id: creator.profile.estate_id,
+        profile_picture_url: creator.profile.profile_picture_url,
+      } : null,
+    } : null;
 
     return {
       ...savedAccessCode,
-      creator_house_address: creatorProfile?.house_address || null,
+      creator: creatorInfo,
     };
   }
 
@@ -70,17 +87,32 @@ export class AccessCodesService {
       order: { created_at: 'DESC' },
     });
 
-    // Get creator's profile to include house address
-    const creatorProfile = await this.userProfileRepository.findOne({
+    // Get creator's full user and profile information
+    const creator = await this.userRepository.findOne({
       where: { user_id: userId },
+      relations: ['profile'],
     });
 
-    const houseAddress = creatorProfile?.house_address || null;
+    const creatorInfo = creator ? {
+      user_id: creator.user_id,
+      email: creator.email,
+      first_name: creator.first_name,
+      last_name: creator.last_name,
+      status: creator.status,
+      profile: creator.profile ? {
+        phone_number: creator.profile.phone_number,
+        role: creator.profile.role,
+        apartment_type: creator.profile.apartment_type,
+        house_address: creator.profile.house_address,
+        estate_id: creator.profile.estate_id,
+        profile_picture_url: creator.profile.profile_picture_url,
+      } : null,
+    } : null;
 
-    // Add house address to each access code
+    // Add full creator info to each access code
     return accessCodes.map(code => ({
       ...code,
-      creator_house_address: houseAddress,
+      creator: creatorInfo,
     }));
   }
 
@@ -103,10 +135,27 @@ export class AccessCodesService {
       throw new BadRequestException('Access code has reached maximum uses');
     }
 
-    // Get creator's profile to include house address
-    const creatorProfile = await this.userProfileRepository.findOne({
+    // Get creator's full user and profile information
+    const creator = await this.userRepository.findOne({
       where: { user_id: accessCode.creator_user_id },
+      relations: ['profile'],
     });
+
+    const creatorInfo = creator ? {
+      user_id: creator.user_id,
+      email: creator.email,
+      first_name: creator.first_name,
+      last_name: creator.last_name,
+      status: creator.status,
+      profile: creator.profile ? {
+        phone_number: creator.profile.phone_number,
+        role: creator.profile.role,
+        apartment_type: creator.profile.apartment_type,
+        house_address: creator.profile.house_address,
+        estate_id: creator.profile.estate_id,
+        profile_picture_url: creator.profile.profile_picture_url,
+      } : null,
+    } : null;
 
     // Increment usage count
     accessCode.current_uses += 1;
@@ -117,8 +166,7 @@ export class AccessCodesService {
       visitor_name: accessCode.visitor_name,
       visitor_email: accessCode.visitor_email,
       visitor_phone: accessCode.visitor_phone,
-      creator_name: `${accessCode.creator.first_name} ${accessCode.creator.last_name}`,
-      creator_house_address: creatorProfile?.house_address || null,
+      creator: creatorInfo,
       valid_from: accessCode.valid_from,
       valid_to: accessCode.valid_to,
       remaining_uses: accessCode.max_uses - accessCode.current_uses,
