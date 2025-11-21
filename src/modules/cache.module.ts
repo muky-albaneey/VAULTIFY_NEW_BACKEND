@@ -9,7 +9,8 @@ import * as redisStore from "cache-manager-redis-store";
       host: "127.0.0.1",
       port: 6379,
       password: "vaultiy-redis",
-      ttl: 60 * 60, // Cache TTL in seconds (1 hour)
+      // ttl: 60 * 60, // Cache TTL in seconds (1 hour)
+      ttl: 1, // Cache TTL in seconds (1 hour)
     }),
   ],
   exports: [NestCacheModule],
