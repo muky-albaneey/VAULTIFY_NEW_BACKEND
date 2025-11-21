@@ -14,13 +14,14 @@ export const AppConfig = registerAs('app', () => ({
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
   
-  // AWS S3 Configuration
+  // AWS S3 Configuration (Linode Object Storage)
+  // Supports both naming conventions: AWS_S3_ENDPOINT_URL/AWS_S3_ENDPOINT, AWS_S3_REGION_NAME/AWS_REGION, AWS_STORAGE_BUCKET_NAME/AWS_S3_BUCKET
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION || 'us-east-1',
-    s3Bucket: process.env.AWS_S3_BUCKET || 'vaultify-media',
-    s3Endpoint: process.env.AWS_S3_ENDPOINT || 'https://us-east-1.linodeobjects.com',
+    region: process.env.AWS_S3_REGION_NAME || process.env.AWS_REGION || 'us-southeast-1',
+    s3Bucket: process.env.AWS_STORAGE_BUCKET_NAME || process.env.AWS_S3_BUCKET || 'vaultify',
+    s3Endpoint: process.env.AWS_S3_ENDPOINT_URL || process.env.AWS_S3_ENDPOINT || 'https://us-southeast-1.linodeobjects.com',
   },
   
   // Firebase Configuration

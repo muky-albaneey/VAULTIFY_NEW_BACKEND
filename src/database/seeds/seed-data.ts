@@ -439,8 +439,11 @@ export class SeedData {
         });
 
         if (!existingCode) {
-          // AccessCode.code is a UUID primary key, so we let it auto-generate
+          // Generate 8-character uppercase code
+          const { v4: uuidv4 } = require('uuid');
+          const code = uuidv4().substring(0, 8).toUpperCase();
           const accessCode = queryRunner.manager.create(AccessCode, {
+            code: code,
             creator_user_id: user.user_id,
             visitor_name: 'Sample Visitor',
             visitor_email: 'omcprincipal1@gmail.com',

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { AccessCode } from '../../entities/access-code.entity';
 import { User } from '../../entities/user.entity';
 import { UserProfile } from '../../entities/user-profile.entity';
+import { Estate } from '../../entities/estate.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface CreateAccessCodeDto {
@@ -26,20 +27,40 @@ export class AccessCodesService {
     private userRepository: Repository<User>,
     @InjectRepository(UserProfile)
     private userProfileRepository: Repository<UserProfile>,
+    @InjectRepository(Estate)
+    private estateRepository: Repository<Estate>,
   ) {}
 
   async createAccessCode(userId: string, createData: CreateAccessCodeDto) {
+    // Validate userId is provided and not empty
+    if (!userId || userId.trim() === '') {
+      throw new BadRequestException('User ID is required to create an access code. Please ensure you are authenticated.');
+    }
+
     const { visitor_name, visitor_email, visitor_phone, valid_from, valid_to, max_uses = 1, gate, notify_on_use = true } = createData;
 
     if (valid_from >= valid_to) {
       throw new BadRequestException('Valid from date must be before valid to date');
     }
 
+    // Verify the user exists before creating the access code
+    // Load with profile relation for later use
+    const creator = await this.userRepository.findOne({
+      where: { user_id: userId },
+      relations: ['profile'],
+    });
+
+    if (!creator) {
+      throw new NotFoundException(`User with ID ${userId} not found. Cannot create access code.`);
+    }
+
     const code = uuidv4().substring(0, 8).toUpperCase();
 
+    // Set creator_user_id directly - this is the foreign key column
+    // Setting the relation can sometimes cause issues, so we set the FK directly
     const accessCode = this.accessCodeRepository.create({
       code,
-      creator_user_id: userId,
+      creator_user_id: userId, // Set the foreign key directly
       visitor_name,
       visitor_email,
       visitor_phone,
@@ -53,11 +74,20 @@ export class AccessCodesService {
 
     const savedAccessCode = await this.accessCodeRepository.save(accessCode);
 
-    // Get creator's full user and profile information
-    const creator = await this.userRepository.findOne({
-      where: { user_id: userId },
-      relations: ['profile'],
-    });
+    // Get estate information if creator has an estate_id
+    let estate = null;
+    if (creator?.profile?.estate_id) {
+      estate = await this.estateRepository.findOne({
+        where: { estate_id: creator.profile.estate_id },
+      });
+    }
+
+    const estateInfo = estate ? {
+      estate_id: estate.estate_id,
+      name: estate.name,
+      email: estate.email,
+      address: estate.address,
+    } : null;
 
     const creatorInfo = creator ? {
       user_id: creator.user_id,
@@ -71,6 +101,7 @@ export class AccessCodesService {
         apartment_type: creator.profile.apartment_type,
         house_address: creator.profile.house_address,
         estate_id: creator.profile.estate_id,
+        estate: estateInfo,
         profile_picture_url: creator.profile.profile_picture_url,
       } : null,
     } : null;
@@ -78,6 +109,12 @@ export class AccessCodesService {
     return {
       ...savedAccessCode,
       creator: creatorInfo,
+      visitor: {
+        name: savedAccessCode.visitor_name,
+        email: savedAccessCode.visitor_email,
+        phone: savedAccessCode.visitor_phone,
+        estate: estateInfo,
+      },
     };
   }
 
@@ -93,6 +130,21 @@ export class AccessCodesService {
       relations: ['profile'],
     });
 
+    // Get estate information if creator has an estate_id
+    let estate = null;
+    if (creator?.profile?.estate_id) {
+      estate = await this.estateRepository.findOne({
+        where: { estate_id: creator.profile.estate_id },
+      });
+    }
+
+    const estateInfo = estate ? {
+      estate_id: estate.estate_id,
+      name: estate.name,
+      email: estate.email,
+      address: estate.address,
+    } : null;
+
     const creatorInfo = creator ? {
       user_id: creator.user_id,
       email: creator.email,
@@ -105,14 +157,21 @@ export class AccessCodesService {
         apartment_type: creator.profile.apartment_type,
         house_address: creator.profile.house_address,
         estate_id: creator.profile.estate_id,
+        estate: estateInfo,
         profile_picture_url: creator.profile.profile_picture_url,
       } : null,
     } : null;
 
-    // Add full creator info to each access code
+    // Add full creator info and visitor with estate to each access code
     return accessCodes.map(code => ({
       ...code,
       creator: creatorInfo,
+      visitor: {
+        name: code.visitor_name,
+        email: code.visitor_email,
+        phone: code.visitor_phone,
+        estate: estateInfo,
+      },
     }));
   }
 
@@ -141,6 +200,21 @@ export class AccessCodesService {
       relations: ['profile'],
     });
 
+    // Get estate information if creator has an estate_id
+    let estate = null;
+    if (creator?.profile?.estate_id) {
+      estate = await this.estateRepository.findOne({
+        where: { estate_id: creator.profile.estate_id },
+      });
+    }
+
+    const estateInfo = estate ? {
+      estate_id: estate.estate_id,
+      name: estate.name,
+      email: estate.email,
+      address: estate.address,
+    } : null;
+
     const creatorInfo = creator ? {
       user_id: creator.user_id,
       email: creator.email,
@@ -153,6 +227,7 @@ export class AccessCodesService {
         apartment_type: creator.profile.apartment_type,
         house_address: creator.profile.house_address,
         estate_id: creator.profile.estate_id,
+        estate: estateInfo,
         profile_picture_url: creator.profile.profile_picture_url,
       } : null,
     } : null;
@@ -167,6 +242,12 @@ export class AccessCodesService {
       visitor_email: accessCode.visitor_email,
       visitor_phone: accessCode.visitor_phone,
       creator: creatorInfo,
+      visitor: {
+        name: accessCode.visitor_name,
+        email: accessCode.visitor_email,
+        phone: accessCode.visitor_phone,
+        estate: estateInfo,
+      },
       valid_from: accessCode.valid_from,
       valid_to: accessCode.valid_to,
       remaining_uses: accessCode.max_uses - accessCode.current_uses,

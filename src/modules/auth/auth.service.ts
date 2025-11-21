@@ -396,10 +396,22 @@ export class AuthService {
     if (!user || user.status === UserStatus.SUSPENDED) {
       throw new UnauthorizedException("User not found or suspended");
     }
-    // Return user with role from profile for roles guard
+    // Return plain object (not TypeORM entity) with all necessary properties
+    // This ensures properties are accessible and serializable
     return {
-      ...user,
+      user_id: user.user_id, // Primary key - MUST be included
+      sub: payload.sub, // JWT subject - also include for compatibility
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      status: user.status,
       role: user.profile?.role || "Residence",
+      profile: user.profile ? {
+        estate_id: user.profile.estate_id,
+        phone_number: user.profile.phone_number,
+        apartment_type: user.profile.apartment_type,
+        house_address: user.profile.house_address,
+      } : null,
     };
   }
 

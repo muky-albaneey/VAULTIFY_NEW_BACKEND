@@ -13,6 +13,9 @@ import { User } from './user.entity';
 @Index(['code'], { unique: true })
 export class AccessCode {
   @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'varchar', length: 8, unique: true })
   code: string;
 
   @Column()

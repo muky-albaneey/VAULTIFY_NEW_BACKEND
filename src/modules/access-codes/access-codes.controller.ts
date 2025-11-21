@@ -30,6 +30,13 @@ export class AccessCodesController {
     @CurrentUserId() userId: string,
     @Body() createData: CreateAccessCodeDto,
   ) {
+    // Additional safeguard: ensure userId is available
+    // The @CurrentUserId() decorator should throw UnauthorizedException if user is not authenticated,
+    // but we add this check as a defensive measure
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('User ID is required but was not found in the request. Please ensure you are authenticated.');
+    }
+    
     const parsed = CreateAccessCodeSchema.parse(createData);
     const validatedData: CreateAccessCodeDto = {
       visitor_name: parsed.visitor_name,

@@ -99,7 +99,24 @@ Access codes allow residents to generate time-bounded, single-use or multi-use c
       "apartment_type": "2-Bedroom",
       "house_address": "Block A, Flat 101",
       "estate_id": "estate-uuid",
+      "estate": {
+        "estate_id": "estate-uuid",
+        "name": "Paradise Estate",
+        "email": "admin@paradiseestate.com",
+        "address": "123 Estate Road, Lagos"
+      },
       "profile_picture_url": "https://storage.example.com/profile.jpg"
+    }
+  },
+  "visitor": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+2348012345678",
+    "estate": {
+      "estate_id": "estate-uuid",
+      "name": "Paradise Estate",
+      "email": "admin@paradiseestate.com",
+      "address": "123 Estate Road, Lagos"
     }
   }
 }
@@ -109,6 +126,11 @@ Access codes allow residents to generate time-bounded, single-use or multi-use c
 - `valid_from` must be before `valid_to`
 - `visitor_name` is required
 - `max_uses` must be positive if provided
+
+**Response Notes:**
+- The `creator.profile.estate` object contains full estate information (name, email, address) from the creator's estate assignment
+- The `visitor.estate` object contains the same estate information, automatically assigned from the creator's estate
+- If the creator doesn't have an estate assigned, the `estate` field will be `null` in both locations
 
 ---
 
@@ -147,7 +169,24 @@ Access codes allow residents to generate time-bounded, single-use or multi-use c
         "apartment_type": "2-Bedroom",
         "house_address": "Block A, Flat 101",
         "estate_id": "estate-uuid",
+        "estate": {
+          "estate_id": "estate-uuid",
+          "name": "Paradise Estate",
+          "email": "admin@paradiseestate.com",
+          "address": "123 Estate Road, Lagos"
+        },
         "profile_picture_url": "https://storage.example.com/profile.jpg"
+      }
+    },
+    "visitor": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+2348012345678",
+      "estate": {
+        "estate_id": "estate-uuid",
+        "name": "Paradise Estate",
+        "email": "admin@paradiseestate.com",
+        "address": "123 Estate Road, Lagos"
       }
     }
   }
@@ -186,7 +225,24 @@ Access codes allow residents to generate time-bounded, single-use or multi-use c
       "apartment_type": "2-Bedroom",
       "house_address": "Block A, Flat 101",
       "estate_id": "estate-uuid",
+      "estate": {
+        "estate_id": "estate-uuid",
+        "name": "Paradise Estate",
+        "email": "admin@paradiseestate.com",
+        "address": "123 Estate Road, Lagos"
+      },
       "profile_picture_url": "https://storage.example.com/profile.jpg"
+    }
+  },
+  "visitor": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+2348012345678",
+    "estate": {
+      "estate_id": "estate-uuid",
+      "name": "Paradise Estate",
+      "email": "admin@paradiseestate.com",
+      "address": "123 Estate Road, Lagos"
     }
   },
   "valid_from": "2024-01-15T10:00:00Z",
