@@ -47,15 +47,17 @@ export class AlertsController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get user alerts' })
-  @ApiQuery({ name: 'page', description: 'Page number', required: false })
-  @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
+  @ApiQuery({ name: 'page', description: 'Page number', required: false, type: Number })
+  @ApiQuery({ name: 'limit', description: 'Items per page', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Alerts retrieved successfully' })
   async getUserAlerts(
     @CurrentUserId() userId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.alertsService.getUserAlerts(userId, page, limit);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.alertsService.getUserAlerts(userId, pageNum, limitNum);
   }
 
   @Get(':id')
@@ -99,15 +101,17 @@ export class AlertsController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SECURITY_PERSONNEL)
   @ApiOperation({ summary: 'Get estate alerts (Admin/Security only)' })
-  @ApiQuery({ name: 'page', description: 'Page number', required: false })
-  @ApiQuery({ name: 'limit', description: 'Items per page', required: false })
+  @ApiQuery({ name: 'page', description: 'Page number', required: false, type: Number })
+  @ApiQuery({ name: 'limit', description: 'Items per page', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Estate alerts retrieved successfully' })
   async getEstateAlerts(
     @Param('estateId') estateId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.alertsService.getEstateAlerts(estateId, page, limit);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.alertsService.getEstateAlerts(estateId, pageNum, limitNum);
   }
 
   @Get('stats/:estateId?')

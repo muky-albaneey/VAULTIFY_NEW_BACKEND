@@ -74,10 +74,12 @@ export class AnnouncementsController {
   @ApiResponse({ status: 200, description: 'Announcements retrieved successfully' })
   async getAnnouncements(
     @CurrentUserId() userId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.announcementsService.getAnnouncements(userId, page, limit);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.announcementsService.getAnnouncements(userId, pageNum, limitNum);
   }
 
   @Get('sent')
@@ -89,10 +91,12 @@ export class AnnouncementsController {
   @ApiResponse({ status: 200, description: 'Sent announcements retrieved successfully' })
   async getMySentAnnouncements(
     @CurrentUserId() userId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.announcementsService.getMySentAnnouncements(userId, page, limit);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.announcementsService.getMySentAnnouncements(userId, pageNum, limitNum);
   }
 
   @Get(':id')

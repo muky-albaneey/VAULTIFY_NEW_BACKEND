@@ -47,6 +47,7 @@ export class CacheCustomInterceptor extends CacheInterceptor {
       "/subscriptions/me/active",
       "/alerts/me",
       "/alerts/me/",
+      "/alerts/estate",
       "/reports/me",
       "/reports/me/",
       "/bank-service-charges/me",
@@ -54,6 +55,9 @@ export class CacheCustomInterceptor extends CacheInterceptor {
       "/announcements/me",
       "/announcements/me/",
     ];
+    
+    // Skip caching for all alerts endpoints
+    const isAlertsEndpoint = url.startsWith('/alerts') || url.includes('/alerts');
 
     // Check if this is a profile-related endpoint
     const isProfileEndpoint = profileEndpoints.some(
@@ -66,8 +70,8 @@ export class CacheCustomInterceptor extends CacheInterceptor {
       !url.includes("/users/estate") &&
       !url.includes("/users/search");
 
-    if (isProfileEndpoint || isUserProfileById) {
-      console.log(`Skipping cache for profile GET request to ${url}`);
+    if (isProfileEndpoint || isUserProfileById || isAlertsEndpoint) {
+      console.log(`Skipping cache for profile/alerts GET request to ${url}`);
       // Invalidate any cached profile data
       try {
         await this.cacheManager.del("*");

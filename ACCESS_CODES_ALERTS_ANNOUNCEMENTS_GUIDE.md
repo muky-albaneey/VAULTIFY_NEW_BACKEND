@@ -432,7 +432,7 @@ Alerts enable residents to send time-sensitive notifications to other residents,
 
 **Response (200):**
 ```json
-{
+{ 
   "data": [
     {
       "alert_id": "alert-uuid",
